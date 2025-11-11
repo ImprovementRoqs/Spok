@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protected Access</title>
+    <title>Protected Access - Task Manager</title>
     <style>
         /* --- General Setup --- */
         body {
@@ -178,7 +178,7 @@
             margin: 0;
         }
         
-        /* IMPROVEMENT 3: Smaller Log Out button in the header */
+        /* Smaller Log Out button in the header */
         #main-header button {
             padding: 8px 15px;
             font-size: 0.9em;
@@ -192,7 +192,7 @@
             padding: 20px;
         }
 
-        /* IMPROVEMENT 1: Changed "Navigation" to "Menu" */
+        /* Menu title style */
         #left-menu .menu-title {
             color: #a0a0a0;
             font-size: 0.9em;
@@ -239,6 +239,8 @@
             overflow-y: auto;
             padding: 30px;
             text-align: left;
+            background-color: #121212;
+            position: relative; /* For FAB */
         }
 
         .page-content {
@@ -249,8 +251,239 @@
             font-size: 2.5em;
             border-bottom: 2px solid #333;
             padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        /* --- Task Component Styles --- */
+        
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
         }
 
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #c0c0c0;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+        }
+
+        .task-list-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .task-box {
+            background-color: #1e1e1e; /* Match menu/header background */
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        
+        .task-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 8px;
+        }
+
+        .task-title {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #e0e0e0;
+        }
+
+        .task-priority {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 700;
+            color: white;
+        }
+
+        .task-description {
+            color: #c0c0c0;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .task-footer {
+            /* Column layout for dates and button row */
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #a0a0a0;
+        }
+        
+        .date-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .action-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            padding-top: 5px;
+            border-top: 1px dashed #333;
+        }
+
+        .task-btn {
+            padding: 8px 15px;
+            font-size: 0.9em;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+
+        .btn-update {
+            background-color: #2ecc71; /* Green for update/refresh */
+        }
+        .btn-update:hover {
+            background-color: #27ae60;
+        }
+
+        .btn-move {
+            background-color: #f1c40f; /* Yellow/Orange for moving/archiving */
+        }
+        .btn-move:hover {
+            background-color: #d8ac0c;
+        }
+
+        .btn-delete-perm {
+            background-color: #e74c3c;
+        }
+        .btn-delete-perm:hover {
+            background-color: #c0392b;
+        }
+
+        /* --- Floating Action Button (FAB) STYLES --- */
+        #add-task-fab {
+            position: fixed;
+            bottom: 30px; 
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 30px;
+            font-weight: 300;
+            line-height: 60px; /* Centers '+' vertically */
+            text-align: center; /* Centers '+' horizontally */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            z-index: 50;
+            background-color: #3498db; /* Blue */
+            color: white;
+            transition: background-color 0.2s, transform 0.2s;
+            border: none; /* Ensure no default button border interferes */
+            cursor: pointer;
+        }
+        #add-task-fab:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+        }
+
+        .modal-content {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+            position: relative;
+        }
+
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            color: #a0a0a0;
+            font-size: 20px;
+            padding: 5px;
+            border: none;
+            border-radius: 50%;
+        }
+
+        .modal-close-btn:hover {
+            background-color: #2a2a2a;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            font-size: 1.8em;
+            color: #3498db;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        /* --- No Tasks Message --- */
+        #no-more-tasks-message {
+            margin-top: 50px;
+            font-size: 4em;
+            font-weight: 900;
+            color: #444; 
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            padding: 50px;
+            border: 3px dashed #333;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -276,74 +509,438 @@
         
         <!-- Top Header -->
         <header id="main-header">
-            <!-- IMPROVEMENT 2: Added ID for dynamic updates -->
             <h2 id="header-title">Dashboard</h2> 
             <button onclick="location.reload()">Log Out</button>
         </header>
         
         <!-- Left Menu -->
         <aside id="left-menu">
-            <!-- IMPROVEMENT 1: Changed title to Menu -->
             <p class="menu-title">MENU</p>
             <ul>
-                <!-- Menu item IDs standardized to menu-pageX -->
                 <li><button id="menu-page1" class="menu-item active" onclick="showPage('page1')">Dashboard</button></li>
-                <li><button id="menu-page2" class="menu-item" onclick="showPage('page2')">Analytics</button></li>
-                <li><button id="menu-page3" class="menu-item" onclick="showPage('page3')">Settings</button></li>
-                <li><button id="menu-page4" class="menu-item" onclick="showPage('page4')">Profile</button></li>
+                <li><button id="menu-page2" class="menu-item" onclick="showPage('page2')">Daily Tasks</button></li>
+                <li><button id="menu-page3" class="menu-item" onclick="showPage('page3')">Meetings</button></li>
+                <li><button id="menu-page4" class="menu-item" onclick="showPage('page4')">All Tasks</button></li>
+                <li><button id="menu-page6" class="menu-item" onclick="showPage('page6')">Finished Tasks</button></li>
+                <li><button id="menu-page5" class="menu-item" onclick="showPage('page5')">ITSP Dashboard</button></li>
             </ul>
         </aside>
         
         <!-- Main Content Area -->
         <main id="content-area">
-            <!-- Dummy Page 1 (Default) -->
+            <!-- Page 1: Dashboard (Default) -->
             <div id="page1" class="page-content">
                 <h2>Dashboard</h2>
-                <p>Welcome to your main dashboard. This is the default page.</p>
-                <p>You can add summaries, quick links, and key metrics here.</p>
+                <p>Welcome to the central hub. Get an overview of your tasks and scheduled meetings.</p>
+                <p><strong>Logged in User ID:</strong> <span id="user-id-display">N/A</span></p>
             </div>
             
-            <!-- Dummy Page 2 -->
+            <!-- Page 2: Daily Tasks -->
             <div id="page2" class="page-content hidden">
-                <h2>Analytics</h2>
-                <p>This is the Analytics page.</p>
-                <p>Charts, graphs, and data tables would go here.</p>
+                <h2>Daily Tasks</h2>
+
+                <!-- Floating Action Button to add task -->
+                <button id="add-task-fab" onclick="showAddTaskModal()">+</button>
+
+                <div id="no-more-tasks-message" class="hidden">
+                    NO MORE TASKS
+                </div>
+
+                <div id="task-list-daily" class="task-list-container">
+                    <!-- Tasks (Added Today OR Stale) will be rendered here -->
+                </div>
             </div>
             
-            <!-- Dummy Page 3 -->
+            <!-- Page 3: Meetings -->
             <div id="page3" class="page-content hidden">
-                <h2>Settings</h2>
-                <p>This is the Settings page.</p>
-                <p>Application preferences, user options, and configuration would go here.</p>
+                <h2>Meetings</h2>
+                <p>See your upcoming schedule, past meetings, and related documents.</p>
             </div>
             
-            <!-- Dummy Page 4 -->
+            <!-- Page 4: All Tasks -->
             <div id="page4" class="page-content hidden">
-                <h2>Profile</h2>
-                <p>This is the Profile page.</p>
-                <p>User details, password change forms, and contact information would go here.</p>
+                <h2>All Tasks (Active)</h2>
+                <p>A comprehensive list of every open task in the system (ordered by Priority).</p>
+                <div id="task-list-all" class="task-list-container">
+                    <!-- All active tasks will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Page 6: Finished Tasks -->
+            <div id="page6" class="page-content hidden">
+                <h2>Finished Tasks (Archive)</h2>
+                <p>Tasks that have been completed and moved out of the active list.</p>
+                <div id="task-list-finished" class="task-list-container">
+                    <!-- Finished tasks will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Page 5: ITSP Dashboard -->
+            <div id="page5" class="page-content hidden">
+                <h2>ITSP Dashboard</h2>
+                <p>High-level metrics and system status related to IT Service Provisioning.</p>
             </div>
         </main>
     </div>
 
-    <script>
+    <!-- Add Task Modal -->
+    <div id="add-task-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="hideAddTaskModal()">×</button>
+            <h3>Add New Task (Priority 1 is Top)</h3>
+            <div class="form-group">
+                <label for="modal-task-title">Title</label>
+                <input type="text" id="modal-task-title" placeholder="e.g., Deploy Q3 Update">
+            </div>
+            <div class="form-group">
+                <label for="modal-task-description">Description</label>
+                <textarea id="modal-task-description" placeholder="Details about the task..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="modal-task-priority">Priority</label>
+                <select id="modal-task-priority">
+                    <option value="1">1 - Top Priority</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5" selected>5 - Low Priority</option>
+                </select>
+            </div>
+            <button onclick="addTask()">Save Task</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, deleteDoc, collection, query, onSnapshot, serverTimestamp, addDoc, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL FIREBASE/AUTH SETUP ---
         const CORRECT_PASSWORD = "1234";
 
-        // --- 1. Splash Screen Logic ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        let app, db, auth, userId = null;
+        let isAuthReady = false;
+        let allTasks = []; // Global array to hold ALL tasks (active and finished)
+
+        // Function to initialize Firebase and authenticate
+        async function initFirebase() {
+            try {
+                // setLogLevel('Debug'); // Uncomment to see Firebase logs
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                    } else {
+                        userId = crypto.randomUUID(); // Fallback for unauthenticated
+                    }
+                    isAuthReady = true;
+                    console.log("Firebase Auth Ready. User ID:", userId);
+                    document.getElementById('user-id-display').textContent = userId;
+                    setupTaskListener();
+                });
+
+                // Attempt sign-in with custom token or anonymously
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.error("Error setting up Firebase:", e);
+            }
+        }
+        
+        // --- TASK MANAGEMENT (CRUD & REAL-TIME) ---
+
+        function setupTaskListener() {
+            if (!isAuthReady || !db) return;
+
+            const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+            const q = query(tasksCollectionRef);
+
+            // Set up real-time listener
+            onSnapshot(q, (snapshot) => {
+                allTasks = [];
+                snapshot.forEach((doc) => {
+                    const task = doc.data();
+                    task.id = doc.id;
+                    // Ensure 'isFinished' exists for filtering
+                    task.isFinished = task.isFinished || false; 
+                    allTasks.push(task);
+                });
+
+                // Sort locally by priority (1 is top) and then by creation date (latest first)
+                allTasks.sort((a, b) => {
+                    if (a.priority !== b.priority) {
+                        return a.priority - b.priority;
+                    }
+                    const dateA = a.createdDate?.toDate ? a.createdDate.toDate() : new Date(0);
+                    const dateB = b.createdDate?.toDate ? b.createdDate.toDate() : new Date(0);
+                    return dateB - dateA;
+                });
+
+                renderTasks();
+            }, (error) => {
+                console.error("Error fetching tasks:", error);
+            });
+        }
+
+        /**
+         * Checks if a task meets the criteria for the Daily Tasks page.
+         * A task is included if it is active AND (Brand NEW OR Stale (not updated for 3+ days)).
+         */
+        function shouldShowDaily(task) {
+            if (task.isFinished) return false;
+
+            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            const THREE_DAYS_MS = 3 * ONE_DAY_MS;
+            const now = Date.now();
+            
+            // Safely get date objects from Firestore timestamps
+            const createdDate = task.createdDate?.toDate ? task.createdDate.toDate() : new Date(0);
+            const updatedDate = task.updatedDate?.toDate ? task.updatedDate.toDate() : createdDate;
+
+            const timeSinceUpdate = now - updatedDate.getTime();
+
+            // 1. Check for Staleness (INCLUDE if 3+ days old)
+            const isStale = timeSinceUpdate >= THREE_DAYS_MS;
+            if (isStale) {
+                return true;
+            }
+            
+            // 2. Check if Brand New (INCLUDE if created today AND not manually updated)
+            
+            // Check if created today (by normalizing both to start of day)
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0); 
+            
+            const createdStartOfDay = new Date(createdDate);
+            createdStartOfDay.setHours(0, 0, 0, 0);
+
+            const isCreatedToday = createdStartOfDay.getTime() === startOfToday.getTime();
+
+            if (isCreatedToday) {
+                // If created today, only show it if it hasn't been manually updated (i.e., updatedDate is the same as createdDate).
+                // If the user hits 'Update', updatedDate will be LATER than createdDate, and it will be hidden.
+                // We compare the raw time values here.
+                return createdDate.getTime() === updatedDate.getTime();
+            }
+
+            // 3. Task is neither stale nor brand new (it was updated 1-2 days ago). EXCLUDE.
+            return false;
+        }
+
+        /**
+         * Creates the HTML element for a task card.
+         * @param {Object} task - The task object from Firestore.
+         * @param {string} context - The page context ('daily', 'all', or 'finished').
+         */
+        function createTaskElement(task, context) {
+            const taskBox = document.createElement('div');
+            taskBox.className = 'task-box';
+
+            // Determine priority color
+            let priorityColor = '#e74c3c'; 
+            if (task.priority === 2) priorityColor = '#f39c12'; 
+            else if (task.priority === 3) priorityColor = '#f1c40f'; 
+            else if (task.priority === 4) priorityColor = '#2ecc71'; 
+            else if (task.priority >= 5) priorityColor = '#3498db'; 
+            else priorityColor = '#95a5a6';
+
+            // Format dates
+            const createdDate = task.createdDate?.toDate ? task.createdDate.toDate() : new Date();
+            // Use createdDate as fallback if updatedDate is missing
+            const updatedDate = task.updatedDate?.toDate ? task.updatedDate.toDate() : createdDate; 
+            
+            const formattedDateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+            const formattedCreated = createdDate.toLocaleDateString('en-US', formattedDateOptions);
+            const formattedUpdated = updatedDate.toLocaleDateString('en-US', formattedDateOptions);
+            
+            // Determine the button based on context
+            let actionButton = '';
+            if (context === 'daily') {
+                actionButton = `<button class="task-btn btn-update" onclick="window.updateTask('${task.id}')">Update</button>`;
+            } else if (context === 'all') {
+                actionButton = `<button class="task-btn btn-move" onclick="window.moveToFinished('${task.id}')">Move to Finished</button>`;
+            } else if (context === 'finished') {
+                actionButton = `<button class="task-btn btn-delete-perm" onclick="window.permanentlyDeleteTask('${task.id}')">Permanently Delete</button>`;
+            }
+
+
+            taskBox.innerHTML = `
+                <div class="task-header">
+                    <div class="task-title">${task.title}</div>
+                    <div class="task-priority" style="background-color: ${priorityColor};">P${task.priority || 5}</div>
+                </div>
+                <div class="task-description">${task.description}</div>
+                <div class="task-footer">
+                    <div class="date-row">
+                        <span>Added:</span> <span>${formattedCreated}</span>
+                    </div>
+                    <div class="date-row">
+                        <span>Updated:</span> <span>${formattedUpdated}</span>
+                    </div>
+                    <div class="action-row">
+                        ${actionButton}
+                    </div>
+                </div>
+            `;
+            return taskBox;
+        }
+
+        function renderTasks() {
+            const dailyList = document.getElementById('task-list-daily');
+            const allList = document.getElementById('task-list-all');
+            const finishedList = document.getElementById('task-list-finished');
+            const noMoreTasksMessage = document.getElementById('no-more-tasks-message');
+
+            if (!dailyList || !allList || !finishedList || !noMoreTasksMessage) return;
+
+            // --- Filter Tasks ---
+            const activeTasks = allTasks.filter(task => !task.isFinished);
+            const finishedTasks = allTasks.filter(task => task.isFinished);
+            const dailyTasks = activeTasks.filter(shouldShowDaily);
+
+            // --- Daily Tasks (Page 2) Rendering ---
+            dailyList.innerHTML = '';
+            if (dailyTasks.length === 0) {
+                noMoreTasksMessage.classList.remove('hidden');
+                dailyList.classList.add('hidden');
+            } else {
+                noMoreTasksMessage.classList.add('hidden');
+                dailyList.classList.remove('hidden');
+                dailyTasks.forEach(task => dailyList.appendChild(createTaskElement(task, 'daily')));
+            }
+
+            // --- All Tasks (Page 4) Rendering (Active) ---
+            allList.innerHTML = '';
+            activeTasks.forEach(task => allList.appendChild(createTaskElement(task, 'all')));
+
+            // --- Finished Tasks (Page 6) Rendering ---
+            finishedList.innerHTML = '';
+            finishedTasks.forEach(task => finishedList.appendChild(createTaskElement(task, 'finished')));
+        }
+
+        // Exposed globally for use in HTML onclick
+        window.addTask = async function() {
+            const titleInput = document.getElementById('modal-task-title');
+            const descInput = document.getElementById('modal-task-description');
+            const prioritySelect = document.getElementById('modal-task-priority');
+            
+            if (!titleInput.value || !descInput.value) {
+                console.error("Task title and description are required.");
+                return;
+            }
+
+            if (!isAuthReady || !db) {
+                console.error("Authentication or Database not ready. Please wait.");
+                return;
+            }
+
+            try {
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+                
+                await addDoc(tasksCollectionRef, {
+                    title: titleInput.value,
+                    description: descInput.value,
+                    priority: parseInt(prioritySelect.value),
+                    createdDate: serverTimestamp(),
+                    updatedDate: serverTimestamp(), 
+                    isFinished: false, // Default state
+                });
+
+                // Clear form and hide modal
+                titleInput.value = '';
+                descInput.value = '';
+                prioritySelect.value = '5'; 
+                hideAddTaskModal();
+
+            } catch (e) {
+                console.error("Error adding document:", e);
+            }
+        }
+
+        // Exposed globally for use in Daily Tasks button
+        window.updateTask = async function(taskId) {
+            if (!isAuthReady || !db) return;
+
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                // Update the updatedDate to the new server timestamp, which removes it from the daily list immediately.
+                await updateDoc(taskDocRef, {
+                    updatedDate: serverTimestamp(), 
+                });
+                console.log(`Task ${taskId} updated successfully.`);
+            } catch (e) {
+                console.error("Error updating task:", e);
+            }
+        }
+
+        // Exposed globally for use in All Tasks button
+        window.moveToFinished = async function(taskId) {
+            if (!isAuthReady || !db) return;
+
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                await updateDoc(taskDocRef, {
+                    isFinished: true, // Mark as finished
+                    updatedDate: serverTimestamp(), // Optional: Mark when it was finished
+                });
+                console.log(`Task ${taskId} moved to finished.`);
+            } catch (e) {
+                console.error("Error moving task to finished:", e);
+            }
+        }
+
+        // Exposed globally for use in Finished Tasks button (Permanent Delete)
+        window.permanentlyDeleteTask = async function(taskId) {
+            if (!isAuthReady || !db) return;
+
+            // Note: Use a custom modal/dialog for confirmation here in a real app
+            console.log("Permanently deleting task:", taskId);
+
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                await deleteDoc(taskDocRef);
+                console.log(`Task ${taskId} permanently deleted.`);
+            } catch (e) {
+                console.error("Error permanently deleting document:", e);
+            }
+        }
+
+        // --- MODAL LOGIC ---
+        window.showAddTaskModal = function() {
+            document.getElementById('add-task-modal').classList.remove('hidden');
+            document.getElementById('add-task-modal').classList.add('visible');
+        }
+
+        window.hideAddTaskModal = function() {
+            document.getElementById('add-task-modal').classList.remove('visible');
+            setTimeout(() => {
+                document.getElementById('add-task-modal').classList.add('hidden');
+            }, 300); 
+        }
+
+        // --- UI & PAGE LOGIC (Existing) ---
+
         window.onload = function() {
             const splashScreen = document.getElementById('splash-screen');
             const appContainer = document.getElementById('app-container');
             
-            // After 2s animation
+            initFirebase();
+
             setTimeout(() => {
                 splashScreen.classList.add('fade-out');
                 
-                // After splash fades out
                 setTimeout(() => {
                     splashScreen.classList.add('hidden');
-                    // Show login container
                     appContainer.classList.remove('hidden');
-                    // Trigger login fade-in
                     setTimeout(() => {
                         appContainer.classList.add('visible');
                     }, 10); 
@@ -351,8 +948,7 @@
             }, 2000); 
         };
 
-        // --- 2. Login Logic ---
-        function checkPassword() {
+        window.checkPassword = function() {
             const input = document.getElementById('password-input').value;
             const errorMessage = document.getElementById('error-message');
             const appContainer = document.getElementById('app-container');
@@ -361,20 +957,16 @@
             errorMessage.textContent = ""; 
 
             if (input === CORRECT_PASSWORD) {
-                // Correct password: Hide login, show main app
                 appContainer.classList.add('hidden');
                 mainAppPage.classList.remove('hidden');
                 
-                // Set initial header title and active menu state
                 showPage('page1'); 
 
-                // Trigger fade-in for main app
                 setTimeout(() => {
                     mainAppPage.classList.add('visible');
                 }, 10);
                 
             } else {
-                // Incorrect password
                 errorMessage.textContent = "Incorrect password. Access denied.";
                 document.getElementById('password-input').value = '';
                 setTimeout(() => {
@@ -383,9 +975,9 @@
             }
         }
 
-        // --- 3. Main App Page-Switching Logic ---
-        function showPage(pageId) {
+        window.showPage = function(pageId) {
             const headerTitle = document.getElementById('header-title');
+            const fab = document.getElementById('add-task-fab');
 
             // Hide all page content
             const pages = document.querySelectorAll('.page-content');
@@ -398,14 +990,23 @@
             if (activePage) {
                 activePage.classList.remove('hidden');
                 
-                // IMPROVEMENT 2: Update Header Title
-                // Get the H2 content (the page title) from the active content area
-                const newTitle = activePage.querySelector('h2').textContent;
+                // Update Header Title
+                const h2Element = activePage.querySelector('h2');
+                const newTitle = h2Element ? h2Element.textContent : pageId;
                 if (headerTitle) {
                     headerTitle.textContent = newTitle;
                 }
             }
             
+            // Toggle FAB visibility (Only shown on Daily Tasks)
+            if (fab) {
+                if (pageId === 'page2') {
+                    fab.style.display = 'block';
+                } else {
+                    fab.style.display = 'none';
+                }
+            }
+
             // Update active state on menu buttons
             const menuItems = document.querySelectorAll('.menu-item');
             menuItems.forEach(item => {
