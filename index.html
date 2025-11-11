@@ -404,6 +404,13 @@
             transition: background-color 0.2s, transform 0.2s;
             border: none; /* Ensure no default button border interferes */
             cursor: pointer;
+            
+            /* Center the plus symbol exactly */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            
         }
         #add-task-fab:hover {
             background-color: #2980b9;
@@ -532,7 +539,7 @@
             <div id="page1" class="page-content">
                 <h2>Dashboard</h2>
                 <p>Welcome to the central hub. Get an overview of your tasks and scheduled meetings.</p>
-                <p><strong>Logged in User ID:</strong> <span id="user-id-display">N/A</span></p>
+                <p><strong>Local User ID:</strong> <span id="user-id-display">N/A</span> (Data stored in browser's local storage)</p>
             </div>
             
             <!-- Page 2: Daily Tasks -->
@@ -540,7 +547,9 @@
                 <h2>Daily Tasks</h2>
 
                 <!-- Floating Action Button to add task -->
-                <button id="add-task-fab" onclick="showAddTaskModal()">+</button>
+                <button id="add-task-fab" onclick="showAddTaskModal()">
+                    <span style="display: block; margin-top: -5px;">+</span>
+                </button>
 
                 <div id="no-more-tasks-message" class="hidden">
                     NO MORE TASKS
@@ -610,86 +619,58 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, deleteDoc, collection, query, onSnapshot, serverTimestamp, addDoc, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- GLOBAL FIREBASE/AUTH SETUP ---
+    <script>
         const CORRECT_PASSWORD = "1234";
+        const LOCAL_STORAGE_KEY = 'task_manager_data';
+        let allTasks = []; // Global array to hold ALL tasks
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        // --- LOCAL STORAGE HANDLING ---
 
-        let app, db, auth, userId = null;
-        let isAuthReady = false;
-        let allTasks = []; // Global array to hold ALL tasks (active and finished)
-
-        // Function to initialize Firebase and authenticate
-        async function initFirebase() {
+        /**
+         * Loads tasks from local storage or returns an empty array.
+         * Ensures all date strings are converted to Date objects upon retrieval.
+         */
+        function loadTasksFromLocalStorage() {
             try {
-                // setLogLevel('Debug'); // Uncomment to see Firebase logs
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                    } else {
-                        userId = crypto.randomUUID(); // Fallback for unauthenticated
-                    }
-                    isAuthReady = true;
-                    console.log("Firebase Auth Ready. User ID:", userId);
-                    document.getElementById('user-id-display').textContent = userId;
-                    setupTaskListener();
-                });
-
-                // Attempt sign-in with custom token or anonymously
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (storedData) {
+                    const parsedTasks = JSON.parse(storedData);
+                    // Convert date strings back into Date objects for comparison
+                    return parsedTasks.map(task => ({
+                        ...task,
+                        createdDate: new Date(task.createdDate),
+                        updatedDate: new Date(task.updatedDate)
+                    }));
                 }
             } catch (e) {
-                console.error("Error setting up Firebase:", e);
+                console.error("Error loading data from local storage:", e);
+            }
+            return [];
+        }
+
+        /**
+         * Saves the current global task array to local storage.
+         * Date objects are automatically converted to ISO strings during JSON.stringify.
+         */
+        function saveTasksToLocalStorage() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allTasks));
+                console.log("Tasks saved to local storage.");
+            } catch (e) {
+                console.error("Error saving data to local storage:", e);
             }
         }
         
-        // --- TASK MANAGEMENT (CRUD & REAL-TIME) ---
-
-        function setupTaskListener() {
-            if (!isAuthReady || !db) return;
-
-            const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
-            const q = query(tasksCollectionRef);
-
-            // Set up real-time listener
-            onSnapshot(q, (snapshot) => {
-                allTasks = [];
-                snapshot.forEach((doc) => {
-                    const task = doc.data();
-                    task.id = doc.id;
-                    // Ensure 'isFinished' exists for filtering
-                    task.isFinished = task.isFinished || false; 
-                    allTasks.push(task);
-                });
-
-                // Sort locally by priority (1 is top) and then by creation date (latest first)
-                allTasks.sort((a, b) => {
-                    if (a.priority !== b.priority) {
-                        return a.priority - b.priority;
-                    }
-                    const dateA = a.createdDate?.toDate ? a.createdDate.toDate() : new Date(0);
-                    const dateB = b.createdDate?.toDate ? b.createdDate.toDate() : new Date(0);
-                    return dateB - dateA;
-                });
-
-                renderTasks();
-            }, (error) => {
-                console.error("Error fetching tasks:", error);
-            });
+        /**
+         * Initializes the application by loading tasks.
+         */
+        function initializeApp() {
+            allTasks = loadTasksFromLocalStorage();
+            document.getElementById('user-id-display').textContent = 'local-user';
+            renderTasks();
         }
+
+        // --- TASK MANAGEMENT (CRUD) ---
 
         /**
          * Checks if a task meets the criteria for the Daily Tasks page.
@@ -702,9 +683,9 @@
             const THREE_DAYS_MS = 3 * ONE_DAY_MS;
             const now = Date.now();
             
-            // Safely get date objects from Firestore timestamps
-            const createdDate = task.createdDate?.toDate ? task.createdDate.toDate() : new Date(0);
-            const updatedDate = task.updatedDate?.toDate ? task.updatedDate.toDate() : createdDate;
+            // Dates are already JS Date objects thanks to loadTasksFromLocalStorage
+            const createdDate = task.createdDate || new Date(0);
+            const updatedDate = task.updatedDate || createdDate;
 
             const timeSinceUpdate = now - updatedDate.getTime();
 
@@ -726,9 +707,7 @@
             const isCreatedToday = createdStartOfDay.getTime() === startOfToday.getTime();
 
             if (isCreatedToday) {
-                // If created today, only show it if it hasn't been manually updated (i.e., updatedDate is the same as createdDate).
-                // If the user hits 'Update', updatedDate will be LATER than createdDate, and it will be hidden.
-                // We compare the raw time values here.
+                // Only show if the task hasn't been manually updated (i.e., updatedDate is the same as createdDate).
                 return createdDate.getTime() === updatedDate.getTime();
             }
 
@@ -738,7 +717,7 @@
 
         /**
          * Creates the HTML element for a task card.
-         * @param {Object} task - The task object from Firestore.
+         * @param {Object} task - The task object.
          * @param {string} context - The page context ('daily', 'all', or 'finished').
          */
         function createTaskElement(task, context) {
@@ -754,9 +733,8 @@
             else priorityColor = '#95a5a6';
 
             // Format dates
-            const createdDate = task.createdDate?.toDate ? task.createdDate.toDate() : new Date();
-            // Use createdDate as fallback if updatedDate is missing
-            const updatedDate = task.updatedDate?.toDate ? task.updatedDate.toDate() : createdDate; 
+            const createdDate = task.createdDate || new Date();
+            const updatedDate = task.updatedDate || createdDate; 
             
             const formattedDateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
             const formattedCreated = createdDate.toLocaleDateString('en-US', formattedDateOptions);
@@ -765,11 +743,11 @@
             // Determine the button based on context
             let actionButton = '';
             if (context === 'daily') {
-                actionButton = `<button class="task-btn btn-update" onclick="window.updateTask('${task.id}')">Update</button>`;
+                actionButton = `<button class="task-btn btn-update" onclick="updateTask('${task.id}')">Update</button>`;
             } else if (context === 'all') {
-                actionButton = `<button class="task-btn btn-move" onclick="window.moveToFinished('${task.id}')">Move to Finished</button>`;
+                actionButton = `<button class="task-btn btn-move" onclick="moveToFinished('${task.id}')">Move to Finished</button>`;
             } else if (context === 'finished') {
-                actionButton = `<button class="task-btn btn-delete-perm" onclick="window.permanentlyDeleteTask('${task.id}')">Permanently Delete</button>`;
+                actionButton = `<button class="task-btn btn-delete-perm" onclick="permanentlyDeleteTask('${task.id}')">Permanently Delete</button>`;
             }
 
 
@@ -802,6 +780,16 @@
 
             if (!dailyList || !allList || !finishedList || !noMoreTasksMessage) return;
 
+            // --- Sort All Tasks ---
+            allTasks.sort((a, b) => {
+                if (a.priority !== b.priority) {
+                    return a.priority - b.priority;
+                }
+                const dateA = a.createdDate.getTime();
+                const dateB = b.createdDate.getTime();
+                return dateB - dateA; // Latest first
+            });
+
             // --- Filter Tasks ---
             const activeTasks = allTasks.filter(task => !task.isFinished);
             const finishedTasks = allTasks.filter(task => task.isFinished);
@@ -828,90 +816,72 @@
         }
 
         // Exposed globally for use in HTML onclick
-        window.addTask = async function() {
+        window.addTask = function() {
             const titleInput = document.getElementById('modal-task-title');
             const descInput = document.getElementById('modal-task-description');
             const prioritySelect = document.getElementById('modal-task-priority');
             
             if (!titleInput.value || !descInput.value) {
+                // Use custom modal for error instead of alert
                 console.error("Task title and description are required.");
                 return;
             }
 
-            if (!isAuthReady || !db) {
-                console.error("Authentication or Database not ready. Please wait.");
-                return;
-            }
+            const now = new Date();
 
-            try {
-                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
-                
-                await addDoc(tasksCollectionRef, {
-                    title: titleInput.value,
-                    description: descInput.value,
-                    priority: parseInt(prioritySelect.value),
-                    createdDate: serverTimestamp(),
-                    updatedDate: serverTimestamp(), 
-                    isFinished: false, // Default state
-                });
+            const newTask = {
+                id: crypto.randomUUID(), // Generate a unique local ID
+                title: titleInput.value,
+                description: descInput.value,
+                priority: parseInt(prioritySelect.value),
+                createdDate: now,
+                updatedDate: now, 
+                isFinished: false, // Default state
+            };
 
-                // Clear form and hide modal
-                titleInput.value = '';
-                descInput.value = '';
-                prioritySelect.value = '5'; 
-                hideAddTaskModal();
+            allTasks.push(newTask);
+            saveTasksToLocalStorage();
+            renderTasks();
 
-            } catch (e) {
-                console.error("Error adding document:", e);
-            }
+            // Clear form and hide modal
+            titleInput.value = '';
+            descInput.value = '';
+            prioritySelect.value = '5'; 
+            hideAddTaskModal();
         }
 
         // Exposed globally for use in Daily Tasks button
-        window.updateTask = async function(taskId) {
-            if (!isAuthReady || !db) return;
-
-            try {
-                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
-                // Update the updatedDate to the new server timestamp, which removes it from the daily list immediately.
-                await updateDoc(taskDocRef, {
-                    updatedDate: serverTimestamp(), 
-                });
+        window.updateTask = function(taskId) {
+            const taskIndex = allTasks.findIndex(t => t.id === taskId);
+            if (taskIndex > -1) {
+                // Update the updatedDate, which triggers the task to be hidden from the daily list
+                allTasks[taskIndex].updatedDate = new Date(); 
+                saveTasksToLocalStorage();
+                renderTasks();
                 console.log(`Task ${taskId} updated successfully.`);
-            } catch (e) {
-                console.error("Error updating task:", e);
             }
         }
 
         // Exposed globally for use in All Tasks button
-        window.moveToFinished = async function(taskId) {
-            if (!isAuthReady || !db) return;
-
-            try {
-                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
-                await updateDoc(taskDocRef, {
-                    isFinished: true, // Mark as finished
-                    updatedDate: serverTimestamp(), // Optional: Mark when it was finished
-                });
+        window.moveToFinished = function(taskId) {
+            const taskIndex = allTasks.findIndex(t => t.id === taskId);
+            if (taskIndex > -1) {
+                allTasks[taskIndex].isFinished = true; // Mark as finished
+                allTasks[taskIndex].updatedDate = new Date();
+                saveTasksToLocalStorage();
+                renderTasks();
                 console.log(`Task ${taskId} moved to finished.`);
-            } catch (e) {
-                console.error("Error moving task to finished:", e);
             }
         }
 
         // Exposed globally for use in Finished Tasks button (Permanent Delete)
-        window.permanentlyDeleteTask = async function(taskId) {
-            if (!isAuthReady || !db) return;
-
-            // Note: Use a custom modal/dialog for confirmation here in a real app
-            console.log("Permanently deleting task:", taskId);
-
-            try {
-                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
-                await deleteDoc(taskDocRef);
-                console.log(`Task ${taskId} permanently deleted.`);
-            } catch (e) {
-                console.error("Error permanently deleting document:", e);
-            }
+        window.permanentlyDeleteTask = function(taskId) {
+            // In a real app, use a custom modal for confirmation here.
+            
+            allTasks = allTasks.filter(t => t.id !== taskId);
+            saveTasksToLocalStorage();
+            renderTasks();
+            console.log(`Task ${taskId} permanently deleted.`);
         }
 
         // --- MODAL LOGIC ---
@@ -927,13 +897,13 @@
             }, 300); 
         }
 
-        // --- UI & PAGE LOGIC (Existing) ---
+        // --- UI & PAGE LOGIC ---
 
         window.onload = function() {
             const splashScreen = document.getElementById('splash-screen');
             const appContainer = document.getElementById('app-container');
             
-            initFirebase();
+            initializeApp(); // Load data when the page loads
 
             setTimeout(() => {
                 splashScreen.classList.add('fade-out');
@@ -1001,7 +971,7 @@
             // Toggle FAB visibility (Only shown on Daily Tasks)
             if (fab) {
                 if (pageId === 'page2') {
-                    fab.style.display = 'block';
+                    fab.style.display = 'flex'; // Use flex to re-center the plus
                 } else {
                     fab.style.display = 'none';
                 }
