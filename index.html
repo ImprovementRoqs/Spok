@@ -3,24 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEST</title>
-    style.css
+    <title>Protected Access</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            text-align: center;
+        }
+
+        #app-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+            transition: opacity 0.5s ease;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            color: #2c3e50;
+            margin-bottom: 0.2em;
+            font-weight: 800;
+        }
+
+        p {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+
+        input[type="password"] {
+            padding: 12px;
+            margin: 15px 0 20px 0;
+            width: calc(100% - 24px);
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 1.1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="password"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .error {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-weight: 600;
+            min-height: 1.5em; /* Reserve space for error message */
+        }
+
+        #content-page h2 {
+            color: #27ae60;
+            font-size: 2em;
+        }
+    </style>
 </head>
-<body onclick="skipAnimation()">
-    <div id="animation">
-        <h1 class="animated-text">TEST</h1>
+<body>
+
+    <div id="app-container">
+        <div id="welcome-page">
+            <h1>WELCOME</h1>
+            <p>Please enter the secret key to unlock the application.</p>
+            <input type="password" id="password-input" placeholder="Secret Password">
+            <button onclick="checkPassword()">Unlock App</button>
+            <div id="error-message" class="error"></div>
+        </div>
+
+        <div id="content-page" class="hidden">
+            <h2>Access Granted! 🎉</h2>
+            <p>Welcome to the main application area.</p>
+            <p>This is where your future features and content will go. Feel free to modify this section!</p>
+            <button onclick="location.reload()">Log Out</button>
+        </div>
     </div>
 
-    <div id="login-section" class="hidden">
-        <input type="password" id="password" placeholder="Enter password        <button onclick="checkPassword()">Submit</button>
-        <p id="error" style="color:red;"></p>
-    </div>
+    <script>
+        const CORRECT_PASSWORD = "1234";
 
-    <div id="content" class="hidden">
-        <h2>Welcome! You have access.</h2>
-        <p>You can add more content here later.</p>
-    </div>
+        function checkPassword() {
+            const input = document.getElementById('password-input').value;
+            const welcomePage = document.getElementById('welcome-page');
+            const contentPage = document.getElementById('content-page');
+            const errorMessage = document.getElementById('error-message');
+            
+            errorMessage.textContent = ""; // Clear previous errors
 
-    script.js</script>
+            if (input === CORRECT_PASSWORD) {
+                // Correct password: Hide welcome, show content
+                welcomePage.classList.add('hidden');
+                contentPage.classList.remove('hidden');
+                
+            } else {
+                // Incorrect password: Show error message
+                errorMessage.textContent = "Incorrect password. Access denied.";
+                document.getElementById('password-input').value = '';
+                
+                // Set a timeout to clear the error message
+                setTimeout(() => {
+                    errorMessage.textContent = "";
+                }, 3000);
+            }
+        }
+    </script>
 </body>
 </html>
