@@ -1,41 +1,28 @@
-/* Dark Mode */
-body {
-    background-color: #121212;
-    color: #ffffff;
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin-top: 100px;
+let animationDone = false;
+
+window.onload = function() {
+    setTimeout(showLogin, 2500); // Show login after animation
+};
+
+function showLogin() {
+    if (!animationDone) {
+        document.getElementById('animation').style.display = 'none';
+        document.getElementById('login-section').classList.remove('hidden');
+        animationDone = true;
+    }
 }
 
-/* Animation */
-#animation h1 {
-    font-size: 3em;
-    opacity: 0;
-    animation: fadeIn 2s forwards;
+function skipAnimation() {
+    showLogin(); // Skip animation on click
 }
 
-@keyframes fadeIn {
-    to { opacity: 1; }
+function checkPassword() {
+    const password = document.getElementById('password').value;
+    const error = document.getElementById('error');
+    if (password === '1234') {
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('content').classList.remove('hidden');
+    } else {
+        error.textContent = 'Incorrect password. Try again.';
+    }
 }
-
-/* Input and Button Styling */
-input {
-    padding: 10px;
-    margin: 10px;
-    background-color: #1e1e1e;
-    color: #fff;
-    border: 1px solid #333;
-    border-radius: 5px;
-}
-
-button {
-    padding: 10px 15px;
-    background-color: #333;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #555;
