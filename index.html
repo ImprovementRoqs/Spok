@@ -5,36 +5,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protected Access</title>
     <style>
+        /* --- General Setup --- */
         body {
             font-family: 'Inter', Arial, sans-serif;
+            margin: 0;
+            /* DARK MODE: Main background */
+            background-color: #121212;
+            color: #e0e0e0;
+            text-align: center;
+        }
+
+        /* Helper to hide elements */
+        .hidden {
+            display: none !important;
+        }
+
+        /* --- Splash Screen (Dark Mode) --- */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* DARK MODE: Splash background */
+            background-color: #1a1a1a;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.7s ease-out;
+        }
+
+        #splash-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #splash-screen h1 {
+            font-size: 5em;
+            color: #ecf0f1;
+            animation: welcome-shrink 2s ease-out forwards;
+            letter-spacing: 0.1em;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+        }
+
+        @keyframes welcome-shrink {
+            0% { opacity: 0; transform: scale(2.0); letter-spacing: 1.5em; }
+            30% { opacity: 1; }
+            100% { opacity: 1; transform: scale(1.0); letter-spacing: 0.1em; }
+        }
+
+        /* --- Login Page (Dark Mode) --- */
+        #app-container {
+            /* This is the login box container */
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-            text-align: center;
+            /* DARK MODE: Login fade-in */
+            opacity: 0;
+            transition: opacity 0.7s ease-out;
+        }
+        
+        #app-container.visible {
+            opacity: 1;
         }
 
-        #app-container {
-            background: white;
+        #welcome-page {
+             /* This is the login box itself */
+            background: #1e1e1e;
             padding: 40px;
             border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
             max-width: 400px;
             width: 90%;
-            transition: opacity 0.5s ease;
         }
 
-        h1 {
+        #welcome-page h1 {
             font-size: 3.5em;
-            color: #2c3e50;
+            /* DARK MODE: Login text */
+            color: #e0e0e0;
             margin-bottom: 0.2em;
             font-weight: 800;
         }
 
-        p {
-            color: #7f8c8d;
+        #welcome-page p {
+            /* DARK MODE: Login subtext */
+            color: #a0a0a0;
             margin-bottom: 20px;
         }
 
@@ -42,7 +100,10 @@
             padding: 12px;
             margin: 15px 0 20px 0;
             width: calc(100% - 24px);
-            border: 2px solid #bdc3c7;
+            /* DARK MODE: Input field */
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            border: 2px solid #444;
             border-radius: 8px;
             box-sizing: border-box;
             text-align: center;
@@ -54,7 +115,8 @@
             border-color: #3498db;
             outline: none;
         }
-
+        
+        /* General button styles for login page */
         button {
             background-color: #3498db;
             color: white;
@@ -71,31 +133,135 @@
         button:hover {
             background-color: #2980b9;
         }
-        
-        button:active {
-            transform: translateY(1px);
-        }
-
-        .hidden {
-            display: none !important;
-        }
 
         .error {
-            color: #e74c3c;
+            /* DARK MODE: Error text */
+            color: #ff6b6b;
             margin-top: 15px;
             font-weight: 600;
-            min-height: 1.5em; /* Reserve space for error message */
+            min-height: 1.5em;
         }
 
-        #content-page h2 {
-            color: #27ae60;
-            font-size: 2em;
+        /* --- Main App Page Layout --- */
+        #main-app-page {
+            display: grid;
+            /* Layout: 240px side menu, 60px top header */
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: 60px 1fr;
+            grid-template-areas:
+                "menu header"
+                "menu content";
+            height: 100vh;
+            width: 100vw;
+            /* For fade-in effect */
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
         }
+
+        #main-app-page.visible {
+            opacity: 1;
+        }
+
+        /* --- Top Header --- */
+        #main-header {
+            grid-area: header;
+            background-color: #1e1e1e;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        #main-header h2 {
+            color: #e0e0e0;
+            margin: 0;
+        }
+        
+        /* IMPROVEMENT 3: Smaller Log Out button in the header */
+        #main-header button {
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        /* --- Left Menu --- */
+        #left-menu {
+            grid-area: menu;
+            background-color: #1e1e1e;
+            border-right: 1px solid #333;
+            padding: 20px;
+        }
+
+        /* IMPROVEMENT 1: Changed "Navigation" to "Menu" */
+        #left-menu .menu-title {
+            color: #a0a0a0;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-align: left;
+            margin: 0 0 10px 15px;
+        }
+
+        #left-menu ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #left-menu .menu-item {
+            background: none;
+            border: none;
+            color: #c0c0c0;
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 15px;
+            font-size: 1.05em;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+        }
+
+        #left-menu .menu-item:hover {
+            background-color: #2a2a2a;
+        }
+
+        #left-menu .menu-item.active {
+            background-color: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* --- Main Content Area --- */
+        #content-area {
+            grid-area: content;
+            overflow-y: auto;
+            padding: 30px;
+            text-align: left;
+        }
+
+        .page-content {
+            color: #e0e0e0;
+        }
+        
+        .page-content h2 {
+            font-size: 2.5em;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+
     </style>
 </head>
 <body>
+    
+    <!-- 1. Splash Screen -->
+    <div id="splash-screen">
+        <h1>WELCOME</h1>
+    </div>
 
-    <div id="app-container">
+    <!-- 2. Login Page Container (Starts hidden) -->
+    <div id="app-container" class="hidden">
         <div id="welcome-page">
             <h1>WELCOME</h1>
             <p>Please enter the secret key to unlock the application.</p>
@@ -103,40 +269,153 @@
             <button onclick="checkPassword()">Unlock App</button>
             <div id="error-message" class="error"></div>
         </div>
+    </div>
 
-        <div id="content-page" class="hidden">
-            <h2>Access Granted! 🎉</h2>
-            <p>Welcome to the main application area.</p>
-            <p>This is where your future features and content will go. Feel free to modify this section!</p>
+    <!-- 3. Main Application Page (Starts hidden) -->
+    <div id="main-app-page" class="hidden">
+        
+        <!-- Top Header -->
+        <header id="main-header">
+            <!-- IMPROVEMENT 2: Added ID for dynamic updates -->
+            <h2 id="header-title">Dashboard</h2> 
             <button onclick="location.reload()">Log Out</button>
-        </div>
+        </header>
+        
+        <!-- Left Menu -->
+        <aside id="left-menu">
+            <!-- IMPROVEMENT 1: Changed title to Menu -->
+            <p class="menu-title">MENU</p>
+            <ul>
+                <!-- Menu item IDs standardized to menu-pageX -->
+                <li><button id="menu-page1" class="menu-item active" onclick="showPage('page1')">Dashboard</button></li>
+                <li><button id="menu-page2" class="menu-item" onclick="showPage('page2')">Analytics</button></li>
+                <li><button id="menu-page3" class="menu-item" onclick="showPage('page3')">Settings</button></li>
+                <li><button id="menu-page4" class="menu-item" onclick="showPage('page4')">Profile</button></li>
+            </ul>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main id="content-area">
+            <!-- Dummy Page 1 (Default) -->
+            <div id="page1" class="page-content">
+                <h2>Dashboard</h2>
+                <p>Welcome to your main dashboard. This is the default page.</p>
+                <p>You can add summaries, quick links, and key metrics here.</p>
+            </div>
+            
+            <!-- Dummy Page 2 -->
+            <div id="page2" class="page-content hidden">
+                <h2>Analytics</h2>
+                <p>This is the Analytics page.</p>
+                <p>Charts, graphs, and data tables would go here.</p>
+            </div>
+            
+            <!-- Dummy Page 3 -->
+            <div id="page3" class="page-content hidden">
+                <h2>Settings</h2>
+                <p>This is the Settings page.</p>
+                <p>Application preferences, user options, and configuration would go here.</p>
+            </div>
+            
+            <!-- Dummy Page 4 -->
+            <div id="page4" class="page-content hidden">
+                <h2>Profile</h2>
+                <p>This is the Profile page.</p>
+                <p>User details, password change forms, and contact information would go here.</p>
+            </div>
+        </main>
     </div>
 
     <script>
         const CORRECT_PASSWORD = "1234";
 
+        // --- 1. Splash Screen Logic ---
+        window.onload = function() {
+            const splashScreen = document.getElementById('splash-screen');
+            const appContainer = document.getElementById('app-container');
+            
+            // After 2s animation
+            setTimeout(() => {
+                splashScreen.classList.add('fade-out');
+                
+                // After splash fades out
+                setTimeout(() => {
+                    splashScreen.classList.add('hidden');
+                    // Show login container
+                    appContainer.classList.remove('hidden');
+                    // Trigger login fade-in
+                    setTimeout(() => {
+                        appContainer.classList.add('visible');
+                    }, 10); 
+                }, 700); 
+            }, 2000); 
+        };
+
+        // --- 2. Login Logic ---
         function checkPassword() {
             const input = document.getElementById('password-input').value;
-            const welcomePage = document.getElementById('welcome-page');
-            const contentPage = document.getElementById('content-page');
             const errorMessage = document.getElementById('error-message');
+            const appContainer = document.getElementById('app-container');
+            const mainAppPage = document.getElementById('main-app-page');
             
-            errorMessage.textContent = ""; // Clear previous errors
+            errorMessage.textContent = ""; 
 
             if (input === CORRECT_PASSWORD) {
-                // Correct password: Hide welcome, show content
-                welcomePage.classList.add('hidden');
-                contentPage.classList.remove('hidden');
+                // Correct password: Hide login, show main app
+                appContainer.classList.add('hidden');
+                mainAppPage.classList.remove('hidden');
+                
+                // Set initial header title and active menu state
+                showPage('page1'); 
+
+                // Trigger fade-in for main app
+                setTimeout(() => {
+                    mainAppPage.classList.add('visible');
+                }, 10);
                 
             } else {
-                // Incorrect password: Show error message
+                // Incorrect password
                 errorMessage.textContent = "Incorrect password. Access denied.";
                 document.getElementById('password-input').value = '';
-                
-                // Set a timeout to clear the error message
                 setTimeout(() => {
                     errorMessage.textContent = "";
                 }, 3000);
+            }
+        }
+
+        // --- 3. Main App Page-Switching Logic ---
+        function showPage(pageId) {
+            const headerTitle = document.getElementById('header-title');
+
+            // Hide all page content
+            const pages = document.querySelectorAll('.page-content');
+            pages.forEach(page => {
+                page.classList.add('hidden');
+            });
+            
+            // Show the selected page
+            const activePage = document.getElementById(pageId);
+            if (activePage) {
+                activePage.classList.remove('hidden');
+                
+                // IMPROVEMENT 2: Update Header Title
+                // Get the H2 content (the page title) from the active content area
+                const newTitle = activePage.querySelector('h2').textContent;
+                if (headerTitle) {
+                    headerTitle.textContent = newTitle;
+                }
+            }
+            
+            // Update active state on menu buttons
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Activate the corresponding menu item
+            const activeMenuItem = document.getElementById('menu-' + pageId);
+            if (activeMenuItem) {
+                activeMenuItem.classList.add('active');
             }
         }
     </script>
