@@ -7,16 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>TEST</h1>
-    <div id="login-section">
+    <div id="animation">
+        <h1 class="fade-in">Welcome</h1>
+    </div>
+
+    <div id="login-section" style="display:none;">
         <input type="password" id="password" placeholder="Enter password">
         <button onclick="checkPassword()">Submit</button>
         <p id="error" style="color:red;"></p>
-    </div>
+>
+
     <div id="content" style="display:none;">
         <h2>Welcome! You have access.</h2>
         <p>You can add more content here later.</p>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
