@@ -503,8 +503,8 @@
     <!-- 2. Login Page Container (Starts hidden) -->
     <div id="app-container" class="hidden">
         <div id="welcome-page">
-            <h1>WELCOME</h1>
-            <p>Please enter the secret key to unlock the application.</p>
+            <h1>LOGIN REQUIRED</h1>
+            <p>Please enter your secret key to unlock the application.</p>
             <input type="password" id="password-input" placeholder="Secret Password">
             <button onclick="checkPassword()">Unlock App</button>
             <div id="error-message" class="error"></div>
@@ -619,10 +619,50 @@
         </div>
     </div>
 
+    <!-- Set Password Modal (New for security setup) -->
+    <div id="set-password-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Initial Setup: Set Your Password</h3>
+            <p style="color: #ff6b6b; font-weight: 600;">Since this is the first time running, please set your secret key. This key will be securely hashed and stored only on this browser.</p>
+            <div class="form-group">
+                <label for="setup-password">New Secret Key</label>
+                <input type="password" id="setup-password" placeholder="Enter new password (e.g., MySecretKey123)">
+            </div>
+            <div class="form-group">
+                <label for="confirm-password">Confirm Secret Key</label>
+                <input type="password" id="confirm-password" placeholder="Confirm new password">
+            </div>
+            <div id="setup-error-message" class="error"></div>
+            <button onclick="setInitialPassword()">Set and Unlock</button>
+        </div>
+    </div>
+
     <script>
-        const CORRECT_PASSWORD = "1234";
         const LOCAL_STORAGE_KEY = 'task_manager_data';
+        const PASSWORD_HASH_KEY = 'local_password_hash'; // New key for the secure hash
         let allTasks = []; // Global array to hold ALL tasks
+        let passwordHash = null; // Store the retrieved hash
+
+        // --- SECURITY FUNCTIONS (Hashing) ---
+
+        /**
+         * Hashes a string using SHA-256 and returns the hex string representation.
+         * @param {string} password - The string to hash.
+         * @returns {Promise<string>} The SHA-256 hash as a hex string.
+         */
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            
+            // Generate the hash buffer
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data); 
+            
+            // Convert buffer to hex string
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return hashHex;
+        }
 
         // --- LOCAL STORAGE HANDLING ---
 
@@ -662,12 +702,75 @@
         }
         
         /**
-         * Initializes the application by loading tasks.
+         * Initializes the application by loading tasks and checking for password hash.
          */
         function initializeApp() {
             allTasks = loadTasksFromLocalStorage();
+            passwordHash = localStorage.getItem(PASSWORD_HASH_KEY);
+
             document.getElementById('user-id-display').textContent = 'local-user';
             renderTasks();
+            
+            // This is crucial: If no hash exists, we must initiate setup mode.
+            if (!passwordHash) {
+                // Defer showing the setup modal until after the splash screen finishes
+                setTimeout(() => {
+                     hideLoginScreen();
+                     showSetupModal();
+                }, 2800); // 2000ms splash + 700ms fade-out + buffer
+            } else {
+                // Continue with standard splash/login flow (handled in window.onload)
+            }
+        }
+
+        // --- SETUP LOGIC ---
+
+        window.setInitialPassword = async function() {
+            const setupInput = document.getElementById('setup-password');
+            const confirmInput = document.getElementById('confirm-password');
+            const setupError = document.getElementById('setup-error-message');
+            setupError.textContent = "";
+
+            if (setupInput.value.length < 4) {
+                setupError.textContent = "Password must be at least 4 characters long.";
+                return;
+            }
+            
+            if (setupInput.value !== confirmInput.value) {
+                setupError.textContent = "Passwords do not match.";
+                return;
+            }
+
+            try {
+                // 1. Hash the new password
+                const newHash = await hashPassword(setupInput.value);
+
+                // 2. Store the hash securely in local storage
+                localStorage.setItem(PASSWORD_HASH_KEY, newHash);
+                passwordHash = newHash; // Update global state
+
+                // 3. Clear form and proceed to main app
+                setupInput.value = '';
+                confirmInput.value = '';
+                hideSetupModal();
+                unlockApp();
+
+            } catch (e) {
+                console.error("Hashing failed:", e);
+                setupError.textContent = "An error occurred during secure setup.";
+            }
+        }
+
+        window.showSetupModal = function() {
+            document.getElementById('set-password-modal').classList.remove('hidden');
+            document.getElementById('set-password-modal').classList.add('visible');
+        }
+
+        function hideSetupModal() {
+            document.getElementById('set-password-modal').classList.remove('visible');
+            setTimeout(() => {
+                document.getElementById('set-password-modal').classList.add('hidden');
+            }, 300); 
         }
 
         // --- TASK MANAGEMENT (CRUD) ---
@@ -884,7 +987,7 @@
             console.log(`Task ${taskId} permanently deleted.`);
         }
 
-        // --- MODAL LOGIC ---
+        // --- MODAL LOGIC (Tasks) ---
         window.showAddTaskModal = function() {
             document.getElementById('add-task-modal').classList.remove('hidden');
             document.getElementById('add-task-modal').classList.add('visible');
@@ -898,50 +1001,78 @@
         }
 
         // --- UI & PAGE LOGIC ---
+        
+        function unlockApp() {
+            const appContainer = document.getElementById('app-container');
+            const mainAppPage = document.getElementById('main-app-page');
+            
+            appContainer.classList.add('hidden');
+            mainAppPage.classList.remove('hidden');
+            
+            showPage('page1'); 
+
+            setTimeout(() => {
+                mainAppPage.classList.add('visible');
+            }, 10);
+        }
+
+        function hideLoginScreen() {
+            const appContainer = document.getElementById('app-container');
+            const welcomePage = document.getElementById('welcome-page');
+            appContainer.classList.add('hidden');
+            welcomePage.classList.add('hidden'); // Hide the login box content too
+        }
 
         window.onload = function() {
             const splashScreen = document.getElementById('splash-screen');
             const appContainer = document.getElementById('app-container');
             
-            initializeApp(); // Load data when the page loads
+            initializeApp(); // Load data and check for password hash
 
             setTimeout(() => {
                 splashScreen.classList.add('fade-out');
                 
                 setTimeout(() => {
                     splashScreen.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                    setTimeout(() => {
-                        appContainer.classList.add('visible');
-                    }, 10); 
+                    
+                    // Only show the login container if a hash was found (i.e., password is set)
+                    if (passwordHash) {
+                        appContainer.classList.remove('hidden');
+                        setTimeout(() => {
+                            appContainer.classList.add('visible');
+                        }, 10); 
+                    }
                 }, 700); 
             }, 2000); 
         };
 
-        window.checkPassword = function() {
+        window.checkPassword = async function() {
             const input = document.getElementById('password-input').value;
             const errorMessage = document.getElementById('error-message');
-            const appContainer = document.getElementById('app-container');
-            const mainAppPage = document.getElementById('main-app-page');
-            
             errorMessage.textContent = ""; 
 
-            if (input === CORRECT_PASSWORD) {
-                appContainer.classList.add('hidden');
-                mainAppPage.classList.remove('hidden');
+            if (!passwordHash) {
+                errorMessage.textContent = "Error: Password setup incomplete. Please refresh.";
+                return;
+            }
+            
+            try {
+                // 1. Hash the user input
+                const inputHash = await hashPassword(input);
                 
-                showPage('page1'); 
-
-                setTimeout(() => {
-                    mainAppPage.classList.add('visible');
-                }, 10);
-                
-            } else {
-                errorMessage.textContent = "Incorrect password. Access denied.";
-                document.getElementById('password-input').value = '';
-                setTimeout(() => {
-                    errorMessage.textContent = "";
-                }, 3000);
+                // 2. Compare the hashed input to the stored hash
+                if (inputHash === passwordHash) {
+                    unlockApp();
+                } else {
+                    errorMessage.textContent = "Incorrect password. Access denied.";
+                    document.getElementById('password-input').value = '';
+                    setTimeout(() => {
+                        errorMessage.textContent = "";
+                    }, 3000);
+                }
+            } catch (e) {
+                 errorMessage.textContent = "Security error during verification.";
+                 console.error("Verification failed:", e);
             }
         }
 
