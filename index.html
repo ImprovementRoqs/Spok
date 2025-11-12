@@ -134,6 +134,26 @@
             background-color: #2980b9;
         }
 
+        /* --- Added for Page 3 Button --- */
+        .page-button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px; /* Standard app radius */
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px; /* Space from content above */
+        }
+
+        .page-button:hover {
+            background-color: #2980b9;
+        }
+        /* --- End Added Style --- */
+
         .error {
             /* DARK MODE: Error text */
             color: #ff6b6b;
@@ -357,6 +377,55 @@
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
         }
+        
+        /* --- Meeting Box Style (MODIFIED/NEW) --- */
+        .meeting-list-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .meeting-box {
+            background-color: #1e1e1e; /* Match menu/header background */
+            border: 1px solid #333;
+            border-left: 5px solid #555; /* Default border color */
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            text-align: left;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #e0e0e0;
+            transition: all 0.5s;
+        }
+
+        /* Styles for PAST meetings */
+        .meeting-box.past-meeting {
+            opacity: 0.5;
+            background-color: #2a2a2a;
+            border-left: 5px solid #e74c3c; /* Red border for past */
+        }
+        
+        /* Styles for NEXT/CURRENT meetings (with animation) */
+        .meeting-box.next-meeting {
+            background-color: #2c3e50; /* Darker blue background */
+            border-left: 5px solid #3498db; /* Blue highlight */
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.7); /* Glow effect */
+            animation: pulse 1.5s infinite alternate; /* Subtle pulse animation */
+        }
+
+        @keyframes pulse {
+            from {
+                transform: scale(1.0);
+                box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+            }
+            to {
+                transform: scale(1.01);
+                box-shadow: 0 0 20px rgba(52, 152, 219, 1.0);
+            }
+        }
+        /* --- End Meeting Box Style --- */
         
         .task-box {
             background-color: #1e1e1e; /* Match menu/header background */
@@ -673,6 +742,20 @@
             <div id="page3" class="page-content hidden">
                 <h2>Meetings</h2>
                 <p>See your upcoming schedule, past meetings, and related documents.</p>
+                
+                <!-- Use a label styled as a button to trigger the hidden file input -->
+                <label for="meeting-file-input" class="page-button">Insert Meetings (.txt)</label>
+                <input type="file" id="meeting-file-input" class="hidden" accept=".txt" onchange="loadMeetings(event)">
+
+                <!-- Container for the meeting squares -->
+                <div id="meeting-list-container" class="meeting-list-container">
+                    <!-- Meeting squares will be rendered here by JS -->
+                </div>
+                
+                <!-- Error display area -->
+                <div id="meeting-error-display" style="margin-top: 20px; font-size: 1.1em; font-weight: 600; color: #ff6b6b;">
+                    <!-- Error messages will appear here -->
+                </div>
             </div>
             
             <!-- Page 4: All Tasks -->
@@ -750,6 +833,8 @@
         const LOCAL_STORAGE_KEY = 'task_manager_data';
         const PASSWORD_HASH_KEY = 'local_password_hash'; // New key for the secure hash
         let allTasks = []; // Global array to hold ALL tasks
+        let meetingsList = []; // Global array to hold meeting objects (with Date for comparison)
+        let meetingStatusInterval; // Global interval ID for real-time status updates
         let passwordHash = null; // Store the retrieved hash
 
         // --- SECURITY FUNCTIONS (Hashing) ---
@@ -954,8 +1039,8 @@
             const highPriorityCount = activeTasks.filter(task => task.priority <= 2).length;
             document.getElementById('metric-high-p').textContent = highPriorityCount;
             
-            // Meetings Today metric (Placeholder since meetings functionality is not implemented)
-            const meetingsTodayCount = 2; // Mock data
+            // Meetings Today metric 
+            const meetingsTodayCount = meetingsList.length;
             document.getElementById('metric-meetings').textContent = meetingsTodayCount;
 
             
@@ -984,8 +1069,14 @@
                  updateHTML += `<p style="font-weight: 600;">TOP DAILY TASK: <span style="color: #ff6b6b;">NOTHING</span></p>`;
             }
             
-            // B. Earliest Meeting (Placeholder)
-            updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #ff6b6b;">NOTHING</span> (Meetings feature coming soon)</p>`;
+            // B. Earliest Meeting (Uses the raw title from the first parsed object)
+            const earliestMeeting = meetingsList.length > 0 ? meetingsList[0].title : null;
+
+            if (earliestMeeting) {
+                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #2ecc71;">${earliestMeeting}</span></p>`;
+            } else {
+                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #ff6b6b;">NONE LOADED</span></p>`;
+            }
 
             latestUpdates.innerHTML = updateHTML;
         }
@@ -1225,6 +1316,157 @@
             }
         }
 
+        // --- MEETINGS PAGE LOGIC (MODIFIED) ---
+
+        /**
+         * Parses a time string (e.g., "14:30") from a meeting line and creates a Date object for today.
+         * Assumes the time is at the beginning of the line.
+         * @param {string} timeString - The full line of text, or just the time part.
+         * @returns {Date | null} Date object for today at the specified time, or null if parsing fails.
+         */
+        function parseMeetingTime(fullLine) {
+            // Regex to find HH:MM at the start of the line
+            const match = fullLine.match(/^(\d{1,2}):(\d{2})/);
+            if (match) {
+                const now = new Date();
+                const hour = parseInt(match[1]);
+                const minute = parseInt(match[2]);
+                
+                // Create a Date object for the meeting today at the specified time
+                // This assumes all meetings in the file are scheduled for the current day.
+                const meetingDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+                return meetingDate;
+            }
+            return null; 
+        }
+
+        /**
+         * Updates the status of all displayed meetings based on current time and applies CSS classes.
+         */
+        function updateMeetingStatuses() {
+            if (meetingsList.length === 0) return;
+
+            const now = new Date();
+            const listContainer = document.getElementById('meeting-list-container');
+            const children = listContainer.children;
+
+            // Find the closest upcoming meeting (the one that hasn't started yet but is soonest)
+            let closestUpcomingTime = Infinity;
+            
+            // Check each meeting's status
+            meetingsList.forEach((meeting, index) => {
+                const meetingElement = children[index];
+                if (!meetingElement || !meeting.time) return; // Skip if element or time is missing
+
+                // Reset classes
+                meetingElement.classList.remove('past-meeting', 'next-meeting');
+                
+                // Time difference in minutes
+                // Using 1 minute tolerance for 'past' to account for interval lag
+                const diffMs = meeting.time.getTime() - now.getTime();
+                const diffMinutes = diffMs / (1000 * 60);
+
+                if (diffMinutes < -1) { // Meeting started more than 1 minute ago -> Past
+                    meetingElement.classList.add('past-meeting');
+                    meeting.status = 'Past';
+                } else if (diffMinutes >= -1 && diffMinutes <= 60) { // Meeting is happening now or starts in the next 60 minutes -> Next/Current
+                    meetingElement.classList.add('next-meeting');
+                    meeting.status = 'Next/Current';
+                } else { // Meeting is in the future (> 60 minutes away)
+                    meeting.status = 'Future';
+                }
+            });
+        }
+
+        /**
+         * Starts the continuous status update loop for meetings.
+         */
+        function startMeetingUpdateLoop() {
+            // Clear any existing interval
+            if (meetingStatusInterval) {
+                clearInterval(meetingStatusInterval);
+            }
+            
+            // Update every 60 seconds (1 minute)
+            meetingStatusInterval = setInterval(updateMeetingStatuses, 60000); 
+            // Run initial status check immediately after load
+            updateMeetingStatuses();
+        }
+
+        /**
+         * Reads a selected .txt file and populates the meetings list as squares.
+         * Triggered by the file input's onchange event.
+         */
+        function loadMeetings(event) {
+            const file = event.target.files[0];
+            const listContainer = document.getElementById('meeting-list-container');
+            const errorDisplay = document.getElementById('meeting-error-display');
+            const meetingsPageTitle = document.querySelector('#page3 h2'); 
+
+            // Reset global state, display, and title on new load attempt
+            meetingsList = [];
+            listContainer.innerHTML = '';
+            errorDisplay.textContent = '';
+            meetingsPageTitle.textContent = "Meetings"; // Reset title
+
+            if (file && file.type === "text/plain") {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const rawMeetings = content.split('\n').filter(line => line.trim() !== '');
+                    
+                    if (rawMeetings.length > 0) {
+                        
+                        // 1. Process Meetings into structured objects
+                        meetingsList = rawMeetings
+                            .map((line, index) => {
+                                const trimmedLine = line.trim();
+                                const meetingTime = parseMeetingTime(trimmedLine);
+                                
+                                return {
+                                    id: `meeting-${index}`,
+                                    time: meetingTime, 
+                                    title: trimmedLine,
+                                    status: 'Future', // Will be updated by updateMeetingStatuses
+                                    // Format time display nicely
+                                    timeDisplay: meetingTime ? meetingTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'
+                                };
+                            })
+                            // Filter out meetings that couldn't be parsed (if necessary)
+                            .filter(m => m.time !== null); 
+
+                        // 2. Update Page Title (MODIFIED: Removed ---)
+                        const fileName = file.name;
+                        meetingsPageTitle.textContent = fileName;
+
+                        // 3. Populate the list container with meeting boxes
+                        listContainer.innerHTML = meetingsList.map(meeting => `
+                            <div class="meeting-box" id="${meeting.id}">
+                                ${meeting.timeDisplay !== 'N/A' ? `<span style="color: #3498db; font-weight: 700; margin-right: 10px;">[${meeting.timeDisplay}]</span>` : ''}
+                                ${meeting.title}
+                            </div>
+                        `).join('');
+
+                        // 4. Start the continuous status update and initial check
+                        startMeetingUpdateLoop();
+                        
+                    } else {
+                        errorDisplay.textContent = "The selected .txt file is empty or contains no parsable meetings.";
+                    }
+                
+                    // 5. Update Dashboard metrics
+                    renderTasks(); 
+                };
+                reader.readAsText(file);
+            } else if (file) {
+                // Not a .txt file, show an error message
+                errorDisplay.textContent = "Error: Please select a valid .txt file.";
+                renderTasks(); // Update dashboard (count remains 0)
+            }
+            // Reset the file input to allow loading the same file again
+            event.target.value = null;
+        }
+
         // --- UI/MODAL LOGIC ---
 
         window.showAddTaskModal = function() {
@@ -1266,6 +1508,10 @@
 
             // Ensure the dashboard is shown and tasks are rendered
             showPage('page1'); 
+            
+            // Start the meeting status checker loop, even if the list is empty, 
+            // so it's ready if a file is loaded later.
+            startMeetingUpdateLoop();
         }
 
         window.checkPassword = async function() {
