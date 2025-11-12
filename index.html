@@ -253,6 +253,75 @@
             padding-bottom: 10px;
             margin-top: 0;
         }
+
+        /* --- Dashboard Specific Styles (NEW) --- */
+        
+        /* Style for the date/time container now that H2 is gone */
+        #datetime-container {
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        #datetime-container h2 {
+            font-size: 2.5em;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            border-left: 5px solid #3498db; /* Default accent color */
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .metric-card.active-tasks {
+            border-left-color: #2ecc71; /* Green */
+        }
+        .metric-card.today-tasks {
+            border-left-color: #f1c40f; /* Yellow */
+        }
+        .metric-card.high-priority {
+            border-left-color: #e74c3c; /* Red */
+        }
+        .metric-card.meetings-today {
+            border-left-color: #9b59b6; /* Purple for Meetings Today */
+        }
+
+        .metric-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: #c0c0c0;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .metric-card .value {
+            font-size: 3.5em;
+            font-weight: 800;
+            color: #e0e0e0;
+            text-align: right;
+            line-height: 1;
+        }
         
         /* --- Task Component Styles --- */
         
@@ -537,14 +606,54 @@
         <main id="content-area">
             <!-- Page 1: Dashboard (Default) -->
             <div id="page1" class="page-content">
-                <h2>Dashboard</h2>
+                <!-- Removed H2 title for Dashboard page content -->
+                <div id="datetime-container">
+                    <h2 id="dashboard-date" style="font-size: 2.5em; margin-bottom: 10px;">Loading Date...</h2>
+                    <!-- This DIV will show the live local and GMT+1 time -->
+                    <div id="datetime-display" style="font-size: 1.2em; color: #a0a0a0;"></div>
+                </div>
+
                 <p>Welcome to the central hub. Get an overview of your tasks and scheduled meetings.</p>
+                
+                <!-- DASHBOARD METRICS GRID -->
+                <div class="dashboard-grid">
+                    <div class="metric-card active-tasks">
+                        <h3>Total Active Tasks</h3>
+                        <div id="metric-active" class="value">0</div>
+                    </div>
+                    
+                    <div class="metric-card today-tasks">
+                        <h3>Daily Tasks (Needs Attention)</h3>
+                        <div id="metric-daily" class="value">0</div>
+                    </div>
+                    
+                    <div class="metric-card high-priority">
+                        <h3>High Priority (P1/P2)</h3>
+                        <div id="metric-high-p" class="value">0</div>
+                    </div>
+
+                    <!-- MODIFIED: Replaced Finished Tasks with Meetings Today -->
+                    <div class="metric-card meetings-today">
+                        <h3>Meetings Today</h3>
+                        <div id="metric-meetings" class="value">0</div>
+                    </div>
+                </div>
+
+                <h3>Latest Updates</h3>
+                <!-- Placeholder for latest updates content (Highest priority daily task + Earliest meeting) -->
+                <div id="latest-updates-content">
+                    <p>Loading updates...</p>
+                </div>
+
+                <!-- Footer/System Info -->
+                <hr style="border-top: 1px solid #333; margin: 40px 0 15px 0;">
                 <p><strong>Local User ID:</strong> <span id="user-id-display">N/A</span> (Data stored in browser's local storage)</p>
             </div>
             
             <!-- Page 2: Daily Tasks -->
             <div id="page2" class="page-content hidden">
-                <h2>Daily Tasks</h2>
+                <h2>Daily Tasks (Needs Attention)</h2>
+                <p>These tasks either haven't been 'Updated' today, or are overdue for an update (older than 3 days). Use the 'Update' button to refresh their priority, or 'Finish' to complete them.</p>
 
                 <!-- Floating Action Button to add task -->
                 <button id="add-task-fab" onclick="showAddTaskModal()">
@@ -552,11 +661,11 @@
                 </button>
 
                 <div id="no-more-tasks-message" class="hidden">
-                    NO MORE TASKS
+                    NO TASKS NEEDING DAILY ATTENTION!
                 </div>
 
                 <div id="task-list-daily" class="task-list-container">
-                    <!-- Tasks (Added Today OR Stale) will be rendered here -->
+                    <!-- Tasks needing attention will be rendered here -->
                 </div>
             </div>
             
@@ -644,7 +753,6 @@
         let passwordHash = null; // Store the retrieved hash
 
         // --- SECURITY FUNCTIONS (Hashing) ---
-
         /**
          * Hashes a string using SHA-256 and returns the hex string representation.
          * @param {string} password - The string to hash.
@@ -653,10 +761,10 @@
         async function hashPassword(password) {
             const encoder = new TextEncoder();
             const data = encoder.encode(password);
-            
+
             // Generate the hash buffer
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data); 
-            
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
             // Convert buffer to hex string
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -665,7 +773,6 @@
         }
 
         // --- LOCAL STORAGE HANDLING ---
-
         /**
          * Loads tasks from local storage or returns an empty array.
          * Ensures all date strings are converted to Date objects upon retrieval.
@@ -677,9 +784,12 @@
                     const parsedTasks = JSON.parse(storedData);
                     // Convert date strings back into Date objects for comparison
                     return parsedTasks.map(task => ({
+                        // Ensure updatedDate and updatedFlag exist for backwards compatibility
                         ...task,
                         createdDate: new Date(task.createdDate),
-                        updatedDate: new Date(task.updatedDate)
+                        updatedDate: new Date(task.updatedDate || task.createdDate),
+                        // If updatedFlag is missing (legacy tasks), assume false (needs attention).
+                        updatedFlag: task.updatedFlag === undefined ? false : task.updatedFlag 
                     }));
                 }
             } catch (e) {
@@ -700,23 +810,32 @@
                 console.error("Error saving data to local storage:", e);
             }
         }
-        
+
         /**
          * Initializes the application by loading tasks and checking for password hash.
          */
         function initializeApp() {
             allTasks = loadTasksFromLocalStorage();
             passwordHash = localStorage.getItem(PASSWORD_HASH_KEY);
-
-            document.getElementById('user-id-display').textContent = 'local-user';
-            renderTasks();
             
+            // FIX: Added null check to prevent TypeError if DOM element isn't ready
+            const userIdDisplay = document.getElementById('user-id-display');
+            if (userIdDisplay) {
+                userIdDisplay.textContent = 'local-user';
+            }
+            
+            renderTasks(); // Render all views after loading data
+            
+            // Start the live clock update
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+
             // This is crucial: If no hash exists, we must initiate setup mode.
             if (!passwordHash) {
                 // Defer showing the setup modal until after the splash screen finishes
                 setTimeout(() => {
-                     hideLoginScreen();
-                     showSetupModal();
+                    hideLoginScreen();
+                    showSetupModal();
                 }, 2800); // 2000ms splash + 700ms fade-out + buffer
             } else {
                 // Continue with standard splash/login flow (handled in window.onload)
@@ -729,13 +848,14 @@
             const setupInput = document.getElementById('setup-password');
             const confirmInput = document.getElementById('confirm-password');
             const setupError = document.getElementById('setup-error-message');
+            
             setupError.textContent = "";
 
             if (setupInput.value.length < 4) {
                 setupError.textContent = "Password must be at least 4 characters long.";
                 return;
             }
-            
+
             if (setupInput.value !== confirmInput.value) {
                 setupError.textContent = "Passwords do not match.";
                 return;
@@ -770,224 +890,343 @@
             document.getElementById('set-password-modal').classList.remove('visible');
             setTimeout(() => {
                 document.getElementById('set-password-modal').classList.add('hidden');
-            }, 300); 
+            }, 300);
         }
+
+        // --- DASHBOARD LOGIC (Time and Updates) ---
+        
+        /**
+         * Formats and displays the current date and time.
+         */
+        function updateDateTime() {
+            const now = new Date();
+            
+            // Date Formatting for display
+            const localDateString = now.toLocaleDateString(undefined, { 
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+            });
+
+            // Local Time Formatting (excluding timezone name as requested)
+            const localTimeString = now.toLocaleTimeString(undefined, { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+            });
+
+            // GMT+1 Time Formatting (Create a date object representing GMT+1)
+            const gmtPlusOneDate = new Date(now.getTime() + 3600000); // Add 1 hour (3600000 ms)
+            const gmtPlusOneTimeString = gmtPlusOneDate.toLocaleTimeString(undefined, { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'UTC' 
+            });
+            
+            // 1. Update Dashboard Date Title
+            const dateTitle = document.getElementById('dashboard-date');
+            if (dateTitle) {
+                // This H2 now shows the full date as the main header for the content area
+                dateTitle.textContent = localDateString;
+            }
+
+            // 2. Update Time Display (Simplified to remove timezone name, showing only 'Local: [Time]')
+            const dateTimeDisplay = document.getElementById('datetime-display');
+            if (dateTimeDisplay) {
+                dateTimeDisplay.innerHTML = `
+                    <p style="margin: 5px 0;">Local: <strong>${localTimeString}</strong></p>
+                    <p style="margin: 5px 0;">GMT+1: <strong>${gmtPlusOneTimeString}</strong></p>
+                `;
+            }
+        }
+
+
+        /**
+         * Calculates and updates the dashboard metric cards AND latest updates.
+         * @param {Array} activeTasks - Array of active task objects.
+         * @param {Array} dailyTasks - Array of daily task objects (now the 'needs attention' list).
+         * @param {Array} finishedTasks - Array of finished task objects.
+         */
+        function renderDashboard(activeTasks, dailyTasks, finishedTasks) {
+            
+            // --- 1. Metric Cards Update ---
+            // Total Active Tasks
+            document.getElementById('metric-active').textContent = activeTasks.length;
+            
+            // Daily Tasks (Needs Attention)
+            document.getElementById('metric-daily').textContent = dailyTasks.length;
+
+            // High Priority Tasks (P1 and P2)
+            const highPriorityCount = activeTasks.filter(task => task.priority <= 2).length;
+            document.getElementById('metric-high-p').textContent = highPriorityCount;
+            
+            // Meetings Today metric (Placeholder since meetings functionality is not implemented)
+            const meetingsTodayCount = 2; // Mock data
+            document.getElementById('metric-meetings').textContent = meetingsTodayCount;
+
+            
+            // --- 2. Latest Updates Content ---
+            const latestUpdates = document.getElementById('latest-updates-content');
+            
+            // Find Highest Priority Daily Task (Daily tasks are already filtered for 'needs attention'. Sort by priority ascending)
+            const topDailyTask = dailyTasks.length > 0 ? dailyTasks.sort((a, b) => a.priority - b.priority)[0] : null;
+            
+            let updateHTML = '';
+            
+            // A. Highest Priority Daily Task
+            if (topDailyTask) {
+                const priorityColor = {
+                    1: '#e74c3c', 2: '#e67e22', 3: '#f1c40f', 4: '#3498db', 5: '#2ecc71',
+                }[topDailyTask.priority] || '#95a5a6';
+
+                updateHTML += `
+                    <div style="background-color: #1a1a1a; border-left: 4px solid ${priorityColor}; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <span style="font-weight: 700; color: ${priorityColor}; margin-right: 10px;">TOP DAILY TASK:</span>
+                        <span style="font-weight: 600;">${topDailyTask.title}</span> 
+                        <span style="font-size: 0.9em; color: #c0c0c0;"> (P${topDailyTask.priority} - Needs Update)</span>
+                    </div>
+                `;
+            } else {
+                 updateHTML += `<p style="font-weight: 600;">TOP DAILY TASK: <span style="color: #ff6b6b;">NOTHING</span></p>`;
+            }
+            
+            // B. Earliest Meeting (Placeholder)
+            updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #ff6b6b;">NOTHING</span> (Meetings feature coming soon)</p>`;
+
+            latestUpdates.innerHTML = updateHTML;
+        }
+
 
         // --- TASK MANAGEMENT (CRUD) ---
 
         /**
-         * Checks if a task meets the criteria for the Daily Tasks page.
-         * A task is included if it is active AND (Brand NEW OR Stale (not updated for 3+ days)).
+         * Checks if an active task should appear on the Daily Tasks list (page 2).
+         * Rule: Task appears if its updatedFlag is FALSE OR if its updatedDate is older than 3 days.
+         * @param {object} task - The task object.
+         * @returns {boolean} True if the task needs daily attention.
          */
         function shouldShowDaily(task) {
-            if (task.isFinished) return false;
+            if (task.isFinished) {
+                return false;
+            }
 
-            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-            const THREE_DAYS_MS = 3 * ONE_DAY_MS;
-            const now = Date.now();
-            
-            // Dates are already JS Date objects thanks to loadTasksFromLocalStorage
-            const createdDate = task.createdDate || new Date(0);
-            const updatedDate = task.updatedDate || createdDate;
-
-            const timeSinceUpdate = now - updatedDate.getTime();
-
-            // 1. Check for Staleness (INCLUDE if 3+ days old)
-            const isStale = timeSinceUpdate >= THREE_DAYS_MS;
-            if (isStale) {
+            // Rule 1: Task must appear if its daily check flag is false (e.g., just created, or restored)
+            if (task.updatedFlag === false) {
                 return true;
             }
             
-            // 2. Check if Brand New (INCLUDE if created today AND not manually updated)
+            // Rule 2: Check if updatedDate is older than 3 days (even if the flag was previously true)
+            const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+            const threeDaysAgo = new Date(Date.now() - threeDaysInMs);
             
-            // Check if created today (by normalizing both to start of day)
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0); 
-            
-            const createdStartOfDay = new Date(createdDate);
-            createdStartOfDay.setHours(0, 0, 0, 0);
-
-            const isCreatedToday = createdStartOfDay.getTime() === startOfToday.getTime();
-
-            if (isCreatedToday) {
-                // Only show if the task hasn't been manually updated (i.e., updatedDate is the same as createdDate).
-                return createdDate.getTime() === updatedDate.getTime();
-            }
-
-            // 3. Task is neither stale nor brand new (it was updated 1-2 days ago). EXCLUDE.
-            return false;
+            return task.updatedDate.getTime() < threeDaysAgo.getTime();
         }
 
+
         /**
-         * Creates the HTML element for a task card.
-         * @param {Object} task - The task object.
-         * @param {string} context - The page context ('daily', 'all', or 'finished').
+         * Renders a single task object into an HTML element.
+         * @param {object} task - The task object.
+         * @param {boolean} isDailyView - Flag to determine if 'Update' button should be shown.
+         * @returns {string} The HTML string for the task box.
          */
-        function createTaskElement(task, context) {
-            const taskBox = document.createElement('div');
-            taskBox.className = 'task-box';
+        function renderTask(task, isDailyView = false) {
+            const priorityColor = {
+                1: '#e74c3c', // Red
+                2: '#e67e22', // Orange
+                3: '#f1c40f', // Yellow
+                4: '#3498db', // Blue
+                5: '#2ecc71', // Green
+            }[task.priority] || '#95a5a6'; // Default Gray
 
-            // Determine priority color
-            let priorityColor = '#e74c3c'; 
-            if (task.priority === 2) priorityColor = '#f39c12'; 
-            else if (task.priority === 3) priorityColor = '#f1c40f'; 
-            else if (task.priority === 4) priorityColor = '#2ecc71'; 
-            else if (task.priority >= 5) priorityColor = '#3498db'; 
-            else priorityColor = '#95a5a6';
-
-            // Format dates
-            const createdDate = task.createdDate || new Date();
-            const updatedDate = task.updatedDate || createdDate; 
+            const finishedStyle = task.isFinished ? 'opacity: 0.7; text-decoration: line-through;' : '';
             
-            const formattedDateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-            const formattedCreated = createdDate.toLocaleDateString('en-US', formattedDateOptions);
-            const formattedUpdated = updatedDate.toLocaleDateString('en-US', formattedDateOptions);
+            let actionButtons = '';
             
-            // Determine the button based on context
-            let actionButton = '';
-            if (context === 'daily') {
-                actionButton = `<button class="task-btn btn-update" onclick="updateTask('${task.id}')">Update</button>`;
-            } else if (context === 'all') {
-                actionButton = `<button class="task-btn btn-move" onclick="moveToFinished('${task.id}')">Move to Finished</button>`;
-            } else if (context === 'finished') {
-                actionButton = `<button class="task-btn btn-delete-perm" onclick="permanentlyDeleteTask('${task.id}')">Permanently Delete</button>`;
+            if (task.isFinished) {
+                // For finished tasks: only show Restore
+                actionButtons = `<button class="task-btn btn-update" onclick="unfinishTask('${task.id}')">Restore</button>`;
+            } else if (isDailyView) {
+                // For active tasks on Daily Tasks page: show Update and Finish
+                actionButtons = `
+                    <button class="task-btn btn-update" onclick="updateTask('${task.id}')">Update</button>
+                    <button class="task-btn btn-move" onclick="finishTask('${task.id}')">Finish</button>
+                `;
+            } else {
+                // For active tasks on All Tasks page: just show Finish
+                actionButtons = `<button class="task-btn btn-move" onclick="finishTask('${task.id}')">Finish</button>`;
             }
 
 
-            taskBox.innerHTML = `
-                <div class="task-header">
-                    <div class="task-title">${task.title}</div>
-                    <div class="task-priority" style="background-color: ${priorityColor};">P${task.priority || 5}</div>
-                </div>
-                <div class="task-description">${task.description}</div>
-                <div class="task-footer">
-                    <div class="date-row">
-                        <span>Added:</span> <span>${formattedCreated}</span>
+            return `
+                <div class="task-box" style="${finishedStyle}">
+                    <div class="task-header">
+                        <span class="task-title">${task.title}</span>
+                        <span class="task-priority" style="background-color: ${priorityColor};">P${task.priority}</span>
                     </div>
-                    <div class="date-row">
-                        <span>Updated:</span> <span>${formattedUpdated}</span>
-                    </div>
-                    <div class="action-row">
-                        ${actionButton}
+                    <p class="task-description">${task.description}</p>
+                    <div class="task-footer">
+                        <div class="date-row">
+                            <span>Created: ${task.createdDate.toLocaleDateString()}</span>
+                            <span>Updated: ${task.updatedDate.toLocaleDateString()}</span>
+                        </div>
+                        <div class="action-row">
+                            ${actionButtons}
+                            <button class="task-btn btn-delete-perm" onclick="deleteTask('${task.id}')">Delete</button>
+                        </div>
                     </div>
                 </div>
             `;
-            return taskBox;
         }
 
+        /**
+         * Renders the tasks into the relevant containers.
+         */
         function renderTasks() {
-            const dailyList = document.getElementById('task-list-daily');
-            const allList = document.getElementById('task-list-all');
-            const finishedList = document.getElementById('task-list-finished');
-            const noMoreTasksMessage = document.getElementById('no-more-tasks-message');
+            // Sort tasks by priority (1 is highest) and then by updated date (oldest first)
+            const sortedActiveTasks = allTasks
+                .filter(task => !task.isFinished)
+                .sort((a, b) => {
+                    if (a.priority !== b.priority) {
+                        return a.priority - b.priority;
+                    }
+                    return a.updatedDate.getTime() - b.updatedDate.getTime();
+                });
 
-            if (!dailyList || !allList || !finishedList || !noMoreTasksMessage) return;
-
-            // --- Sort All Tasks ---
-            allTasks.sort((a, b) => {
-                if (a.priority !== b.priority) {
-                    return a.priority - b.priority;
-                }
-                const dateA = a.createdDate.getTime();
-                const dateB = b.createdDate.getTime();
-                return dateB - dateA; // Latest first
-            });
-
-            // --- Filter Tasks ---
-            const activeTasks = allTasks.filter(task => !task.isFinished);
+            // Filter for Daily Tasks (Tasks needing attention based on the new logic)
+            const dailyTasks = allTasks.filter(shouldShowDaily); 
             const finishedTasks = allTasks.filter(task => task.isFinished);
-            const dailyTasks = activeTasks.filter(shouldShowDaily);
+            
+            // --- 1. Render Daily Tasks ---
+            const dailyList = document.getElementById('task-list-daily');
+            const dailyMessage = document.getElementById('no-more-tasks-message');
+            
+            // Pass true for isDailyView to enable Update button
+            dailyList.innerHTML = dailyTasks.map(task => renderTask(task, true)).join('');
 
-            // --- Daily Tasks (Page 2) Rendering ---
-            dailyList.innerHTML = '';
-            if (dailyTasks.length === 0) {
-                noMoreTasksMessage.classList.remove('hidden');
-                dailyList.classList.add('hidden');
+            // Hide the no tasks message if the list is populated
+            if (dailyTasks.length > 0) {
+                 dailyMessage.classList.add('hidden');
             } else {
-                noMoreTasksMessage.classList.add('hidden');
-                dailyList.classList.remove('hidden');
-                dailyTasks.forEach(task => dailyList.appendChild(createTaskElement(task, 'daily')));
+                 // Only ensure it's visible if we're on the page (handled in showPage, but good to ensure here too)
+                 if (document.getElementById('page2').classList.contains('hidden') === false) {
+                     dailyMessage.classList.remove('hidden');
+                 }
             }
 
-            // --- All Tasks (Page 4) Rendering (Active) ---
-            allList.innerHTML = '';
-            activeTasks.forEach(task => allList.appendChild(createTaskElement(task, 'all')));
 
-            // --- Finished Tasks (Page 6) Rendering ---
-            finishedList.innerHTML = '';
-            finishedTasks.forEach(task => finishedList.appendChild(createTaskElement(task, 'finished')));
+            // --- 2. Render All Active Tasks ---
+            const allTasksList = document.getElementById('task-list-all');
+            // Do NOT pass true for isDailyView (default is false)
+            allTasksList.innerHTML = sortedActiveTasks.map(task => renderTask(task)).join('');
+
+            // --- 3. Render Finished Tasks ---
+            const finishedList = document.getElementById('task-list-finished');
+            // Sort finished tasks newest first
+            finishedList.innerHTML = finishedTasks
+                .sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime())
+                .map(task => renderTask(task)).join(''); // Render as regular, finished tasks
+
+            // --- 4. Render Dashboard Metrics and Updates ---
+            renderDashboard(sortedActiveTasks, dailyTasks, finishedTasks);
         }
 
-        // Exposed globally for use in HTML onclick
+        /**
+         * Adds a new task to the global list and saves/re-renders.
+         */
         window.addTask = function() {
             const titleInput = document.getElementById('modal-task-title');
             const descInput = document.getElementById('modal-task-description');
-            const prioritySelect = document.getElementById('modal-task-priority');
-            
-            if (!titleInput.value || !descInput.value) {
-                // Use custom modal for error instead of alert
-                console.error("Task title and description are required.");
+            const priorityInput = document.getElementById('modal-task-priority');
+
+            const title = titleInput.value.trim();
+            const description = descInput.value.trim();
+            const priority = parseInt(priorityInput.value);
+
+            if (!title) {
+                // In a real app, this should be a modal error message, not console log
+                console.error("Task title cannot be empty."); 
                 return;
             }
 
             const now = new Date();
-
             const newTask = {
-                id: crypto.randomUUID(), // Generate a unique local ID
-                title: titleInput.value,
-                description: descInput.value,
-                priority: parseInt(prioritySelect.value),
+                id: crypto.randomUUID(),
+                title: title,
+                description: description,
+                priority: priority,
+                isFinished: false,
                 createdDate: now,
                 updatedDate: now, 
-                isFinished: false, // Default state
+                updatedFlag: false // New tasks must appear on Daily Tasks immediately
             };
 
             allTasks.push(newTask);
             saveTasksToLocalStorage();
             renderTasks();
+            hideAddTaskModal();
 
-            // Clear form and hide modal
+            // Clear inputs
             titleInput.value = '';
             descInput.value = '';
-            prioritySelect.value = '5'; 
-            hideAddTaskModal();
+            priorityInput.value = '5'; // Reset to default low priority
         }
 
-        // Exposed globally for use in Daily Tasks button
+        /**
+         * Updates a task's updatedDate to now and sets the updatedFlag to true.
+         * This removes it from the Daily Tasks list (Page 2).
+         */
         window.updateTask = function(taskId) {
-            const taskIndex = allTasks.findIndex(t => t.id === taskId);
-            if (taskIndex > -1) {
-                // Update the updatedDate, which triggers the task to be hidden from the daily list
-                allTasks[taskIndex].updatedDate = new Date(); 
+            const task = allTasks.find(t => t.id === taskId);
+            if (task) {
+                // Update the date and set the flag to true for the current day
+                task.updatedDate = new Date(); 
+                task.updatedFlag = true; 
+                
                 saveTasksToLocalStorage();
                 renderTasks();
-                console.log(`Task ${taskId} updated successfully.`);
             }
         }
 
-        // Exposed globally for use in All Tasks button
-        window.moveToFinished = function(taskId) {
-            const taskIndex = allTasks.findIndex(t => t.id === taskId);
-            if (taskIndex > -1) {
-                allTasks[taskIndex].isFinished = true; // Mark as finished
-                allTasks[taskIndex].updatedDate = new Date();
-                saveTasksToLocalStorage();
-                renderTasks();
-                console.log(`Task ${taskId} moved to finished.`);
-            }
-        }
-
-        // Exposed globally for use in Finished Tasks button (Permanent Delete)
-        window.permanentlyDeleteTask = function(taskId) {
-            // In a real app, use a custom modal for confirmation here.
+        /**
+         * Deletes a task by ID.
+         */
+        window.deleteTask = function(taskId) {
+            const task = allTasks.find(t => t.id === taskId);
             
-            allTasks = allTasks.filter(t => t.id !== taskId);
+            // Using a simple check here instead of a complex custom modal
+            if (!confirm(`Are you sure you want to permanently delete task: "${task.title}"?`)) {
+                return;
+            }
+
+            allTasks = allTasks.filter(task => task.id !== taskId);
             saveTasksToLocalStorage();
             renderTasks();
-            console.log(`Task ${taskId} permanently deleted.`);
         }
 
-        // --- MODAL LOGIC (Tasks) ---
+        /**
+         * Marks a task as finished and updates its updatedDate.
+         */
+        window.finishTask = function(taskId) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (task) {
+                task.isFinished = true;
+                task.updatedDate = new Date();
+                // updatedFlag is irrelevant once finished, but we'll leave it as is.
+                saveTasksToLocalStorage();
+                renderTasks();
+            }
+        }
+
+        /**
+         * Restores a finished task to active status and updates its updatedDate/flag.
+         */
+        window.unfinishTask = function(taskId) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (task) {
+                task.isFinished = false;
+                task.updatedDate = new Date();
+                task.updatedFlag = false; // Flag reset to false on restore to force attention on the Daily Tasks page
+                saveTasksToLocalStorage();
+                renderTasks();
+            }
+        }
+
+        // --- UI/MODAL LOGIC ---
+
         window.showAddTaskModal = function() {
             document.getElementById('add-task-modal').classList.remove('hidden');
             document.getElementById('add-task-modal').classList.add('visible');
@@ -997,103 +1236,97 @@
             document.getElementById('add-task-modal').classList.remove('visible');
             setTimeout(() => {
                 document.getElementById('add-task-modal').classList.add('hidden');
-            }, 300); 
+            }, 300);
         }
 
-        // --- UI & PAGE LOGIC ---
-        
-        function unlockApp() {
-            const appContainer = document.getElementById('app-container');
-            const mainAppPage = document.getElementById('main-app-page');
-            
-            appContainer.classList.add('hidden');
-            mainAppPage.classList.remove('hidden');
-            
-            showPage('page1'); 
+        // --- AUTHENTICATION LOGIC ---
 
-            setTimeout(() => {
-                mainAppPage.classList.add('visible');
-            }, 10);
+        function showLoginScreen() {
+             document.getElementById('app-container').classList.remove('hidden');
+             document.getElementById('app-container').classList.add('visible');
         }
 
         function hideLoginScreen() {
-            const appContainer = document.getElementById('app-container');
-            const welcomePage = document.getElementById('welcome-page');
-            appContainer.classList.add('hidden');
-            welcomePage.classList.add('hidden'); // Hide the login box content too
+             document.getElementById('app-container').classList.remove('visible');
+             document.getElementById('app-container').classList.add('hidden');
         }
 
-        window.onload = function() {
-            const splashScreen = document.getElementById('splash-screen');
-            const appContainer = document.getElementById('app-container');
-            
-            initializeApp(); // Load data and check for password hash
+        function unlockApp() {
+            // Hide login page
+            hideLoginScreen();
 
+            // Show main app page
+            const mainAppPage = document.getElementById('main-app-page');
+            mainAppPage.classList.remove('hidden');
+            
+            // Give time for content to load, then fade in
             setTimeout(() => {
-                splashScreen.classList.add('fade-out');
-                
-                setTimeout(() => {
-                    splashScreen.classList.add('hidden');
-                    
-                    // Only show the login container if a hash was found (i.e., password is set)
-                    if (passwordHash) {
-                        appContainer.classList.remove('hidden');
-                        setTimeout(() => {
-                            appContainer.classList.add('visible');
-                        }, 10); 
-                    }
-                }, 700); 
-            }, 2000); 
-        };
+                mainAppPage.classList.add('visible');
+            }, 50);
+
+            // Ensure the dashboard is shown and tasks are rendered
+            showPage('page1'); 
+        }
 
         window.checkPassword = async function() {
-            const input = document.getElementById('password-input').value;
-            const errorMessage = document.getElementById('error-message');
-            errorMessage.textContent = ""; 
+            const input = document.getElementById('password-input');
+            const error = document.getElementById('error-message');
+            error.textContent = "";
 
             if (!passwordHash) {
-                errorMessage.textContent = "Error: Password setup incomplete. Please refresh.";
+                error.textContent = "Error: Password not initialized. Please refresh.";
                 return;
             }
-            
+
             try {
-                // 1. Hash the user input
-                const inputHash = await hashPassword(input);
+                const inputHash = await hashPassword(input.value);
                 
-                // 2. Compare the hashed input to the stored hash
                 if (inputHash === passwordHash) {
+                    input.value = ''; // Clear input on success
                     unlockApp();
                 } else {
-                    errorMessage.textContent = "Incorrect password. Access denied.";
-                    document.getElementById('password-input').value = '';
-                    setTimeout(() => {
-                        errorMessage.textContent = "";
-                    }, 3000);
+                    error.textContent = "Invalid secret key. Please try again.";
+                    input.value = ''; // Clear input on failure
                 }
             } catch (e) {
-                 errorMessage.textContent = "Security error during verification.";
-                 console.error("Verification failed:", e);
+                console.error("Authentication failed:", e);
+                error.textContent = "A security error occurred.";
             }
         }
 
+        // --- PAGE NAVIGATION ---
+        
         window.showPage = function(pageId) {
+            const allPages = document.querySelectorAll('.page-content');
             const headerTitle = document.getElementById('header-title');
             const fab = document.getElementById('add-task-fab');
+            const dailyMessage = document.getElementById('no-more-tasks-message');
+            const dailyTasks = allTasks.filter(shouldShowDaily);
 
-            // Hide all page content
-            const pages = document.querySelectorAll('.page-content');
-            pages.forEach(page => {
+            // Hide all pages
+            allPages.forEach(page => {
                 page.classList.add('hidden');
             });
+
+            // Hide the 'NO MORE TASKS' message globally first
+            dailyMessage.classList.add('hidden');
             
             // Show the selected page
             const activePage = document.getElementById(pageId);
             if (activePage) {
                 activePage.classList.remove('hidden');
                 
+                // If navigating to the Daily Tasks page, check if the list is empty and show the message if needed.
+                if (pageId === 'page2') {
+                    if (dailyTasks.length === 0) {
+                        dailyMessage.classList.remove('hidden');
+                    }
+                }
+
                 // Update Header Title
-                const h2Element = activePage.querySelector('h2');
-                const newTitle = h2Element ? h2Element.textContent : pageId;
+                // Special handling: Dashboard page doesn't have an H2, so use the default header title
+                const newTitle = (pageId === 'page1') ? 'Dashboard' : (activePage.querySelector('h2') ? activePage.querySelector('h2').textContent : pageId);
+                
                 if (headerTitle) {
                     headerTitle.textContent = newTitle;
                 }
@@ -1119,6 +1352,28 @@
             if (activeMenuItem) {
                 activeMenuItem.classList.add('active');
             }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            // Start splash screen fade out after 2 seconds
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('fade-out');
+            }, 2000); 
+
+            // Show login page after splash screen finishes (2 seconds + 700ms fade-out)
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('hidden');
+                
+                // Only show login screen if password hash exists (otherwise setup modal will show)
+                if (localStorage.getItem(PASSWORD_HASH_KEY)) {
+                    showLoginScreen();
+                }
+
+            }, 2700);
+
+            // Load data and check for setup/password
+            initializeApp();
         }
     </script>
 </body>
