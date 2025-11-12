@@ -399,6 +399,21 @@
             color: #e0e0e0;
             transition: all 0.5s;
         }
+        
+        /* --- START OF FIX: ADDED STATUS TAG STYLE --- */
+        .meeting-status-tag {
+            font-size: 0.75em;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+            vertical-align: middle;
+            display: inline-block;
+            color: white; /* Default color */
+            text-transform: uppercase;
+        }
+        /* --- END OF FIX --- */
+
 
         /* Styles for PAST meetings */
         .meeting-box.past-meeting {
@@ -407,6 +422,12 @@
             border-left: 5px solid #e74c3c; /* Red border for past */
         }
         
+        /* --- START OF FIX: ADDED STATUS TAG COLOR FOR PAST --- */
+        .meeting-box.past-meeting .meeting-status-tag {
+            background-color: #e74c3c; /* Red */
+        }
+        /* --- END OF FIX --- */
+        
         /* Styles for NEXT/CURRENT meetings (with animation) */
         .meeting-box.next-meeting {
             background-color: #2c3e50; /* Darker blue background */
@@ -414,6 +435,12 @@
             box-shadow: 0 0 15px rgba(52, 152, 219, 0.7); /* Glow effect */
             animation: pulse 1.5s infinite alternate; /* Subtle pulse animation */
         }
+        
+        /* --- START OF FIX: ADDED STATUS TAG COLOR FOR NEXT/CURRENT --- */
+        .meeting-box.next-meeting .meeting-status-tag {
+            background-color: #3498db; /* Blue */
+        }
+        /* --- END OF FIX --- */
 
         @keyframes pulse {
             from {
@@ -1069,13 +1096,26 @@
                  updateHTML += `<p style="font-weight: 600;">TOP DAILY TASK: <span style="color: #ff6b6b;">NOTHING</span></p>`;
             }
             
-            // B. Earliest Meeting (Uses the raw title from the first parsed object)
-            const earliestMeeting = meetingsList.length > 0 ? meetingsList[0].title : null;
+            // B. Earliest Meeting (Closest and Not Passed)
+            const now = new Date();
+            
+            // 1. Filter out meetings that have already passed (allowing for 1 minute tolerance)
+            // Time difference in minutes from now: (Meeting Time - Now) / 60000
+            const upcomingMeetings = meetingsList.filter(meeting => {
+                if (!meeting.time) return false;
+                const diffMs = meeting.time.getTime() - now.getTime();
+                const diffMinutes = diffMs / (1000 * 60);
+                return diffMinutes > -1; // Must not be more than 1 minute in the past
+            });
+            
+            // 2. Sort the upcoming meetings to find the earliest one
+            const nextMeeting = upcomingMeetings.sort((a, b) => a.time.getTime() - b.time.getTime())[0];
 
-            if (earliestMeeting) {
-                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #2ecc71;">${earliestMeeting}</span></p>`;
+            if (nextMeeting) {
+                 const timeDisplay = nextMeeting.timeDisplay !== 'N/A' ? `(${nextMeeting.timeDisplay})` : '';
+                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">NEXT UPCOMING MEETING ${timeDisplay}: <span style="color: #2ecc71;">${nextMeeting.title}</span></p>`;
             } else {
-                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">EARLIEST MEETING: <span style="color: #ff6b6b;">NONE LOADED</span></p>`;
+                 updateHTML += `<p style="margin-top: 15px; font-weight: 600;">NEXT UPCOMING MEETING: <span style="color: #f1c40f;">NONE UPCOMING TODAY</span></p>`;
             }
 
             latestUpdates.innerHTML = updateHTML;
@@ -1350,9 +1390,6 @@
             const listContainer = document.getElementById('meeting-list-container');
             const children = listContainer.children;
 
-            // Find the closest upcoming meeting (the one that hasn't started yet but is soonest)
-            let closestUpcomingTime = Infinity;
-            
             // Check each meeting's status
             meetingsList.forEach((meeting, index) => {
                 const meetingElement = children[index];
@@ -1360,6 +1397,10 @@
 
                 // Reset classes
                 meetingElement.classList.remove('past-meeting', 'next-meeting');
+                
+                // Get status element and initialize status text
+                const statusTag = document.getElementById(`status-${meeting.id}`);
+                let statusText = 'Future';
                 
                 // Time difference in minutes
                 // Using 1 minute tolerance for 'past' to account for interval lag
@@ -1369,13 +1410,23 @@
                 if (diffMinutes < -1) { // Meeting started more than 1 minute ago -> Past
                     meetingElement.classList.add('past-meeting');
                     meeting.status = 'Past';
+                    statusText = 'PAST';
                 } else if (diffMinutes >= -1 && diffMinutes <= 60) { // Meeting is happening now or starts in the next 60 minutes -> Next/Current
                     meetingElement.classList.add('next-meeting');
                     meeting.status = 'Next/Current';
+                    statusText = 'UPCOMING';
                 } else { // Meeting is in the future (> 60 minutes away)
                     meeting.status = 'Future';
                 }
+                
+                // Apply status text to the tag
+                if (statusTag) {
+                    statusTag.textContent = statusText;
+                }
             });
+            
+            // After updating statuses, re-render the dashboard to get the latest 'Next Upcoming' meeting
+            renderTasks();
         }
 
         /**
@@ -1440,9 +1491,11 @@
                         meetingsPageTitle.textContent = fileName;
 
                         // 3. Populate the list container with meeting boxes
+                        // Added status tag element with unique ID for JS manipulation
                         listContainer.innerHTML = meetingsList.map(meeting => `
                             <div class="meeting-box" id="${meeting.id}">
                                 ${meeting.timeDisplay !== 'N/A' ? `<span style="color: #3498db; font-weight: 700; margin-right: 10px;">[${meeting.timeDisplay}]</span>` : ''}
+                                <span class="meeting-status-tag" id="status-${meeting.id}">...</span> 
                                 ${meeting.title}
                             </div>
                         `).join('');
